@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Install AusFlow (UAT)</title>
+<link rel="apple-touch-icon" href="icon-512.png">
+<style>
+  :root { --p:#0B5D8A; --pb:#3FB1E3; --a:#2CC4A0; --bg:#F2F5F8; --t:#0F1B2A; --m:#5B6B7C; --b:#E3E8EE; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif; color:var(--t); background:var(--bg); }
+  .hero { background:linear-gradient(135deg,var(--pb),#1688BF 55%,var(--p)); color:#fff; padding:56px 24px 88px; text-align:center; border-radius:0 0 28px 28px; }
+  .hero img { width:96px; height:96px; border-radius:22px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+  .hero h1 { margin:16px 0 2px; font-size:30px; letter-spacing:-.5px; }
+  .hero p { margin:0; opacity:.85; }
+  .tag { display:inline-block; margin-top:12px; padding:3px 12px; border-radius:99px; background:rgba(255,255,255,.2); font-size:12px; font-weight:700; letter-spacing:.5px; }
+  main { max-width:520px; margin:-56px auto 40px; padding:0 16px; }
+  .card { background:#fff; border-radius:20px; padding:20px; box-shadow:0 4px 16px rgba(15,27,42,.07); margin-bottom:14px; }
+  .btn { display:flex; align-items:center; justify-content:center; gap:8px; height:56px; border-radius:14px; background:var(--p); color:#fff; font-size:18px; font-weight:700; text-decoration:none; }
+  .btn:active { opacity:.85; }
+  .meta { display:flex; justify-content:space-between; color:var(--m); font-size:13px; margin-top:12px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--m); margin:22px 4px 10px; }
+  ol { margin:0; padding:0; list-style:none; counter-reset:s; }
+  ol li { counter-increment:s; position:relative; padding:0 0 14px 44px; }
+  ol li:last-child { padding-bottom:0; }
+  ol li::before { content:counter(s); position:absolute; left:0; top:0; width:30px; height:30px; border-radius:50%; background:#E6F3FA; color:var(--p); font-weight:800; display:flex; align-items:center; justify-content:center; font-size:15px; }
+  .zh { color:var(--m); font-size:14px; display:block; }
+  .warn { display:none; background:#FDF1E3; color:#9A5A16; border-radius:14px; padding:14px 16px; margin-bottom:14px; font-size:15px; }
+  code { background:var(--bg); padding:1px 6px; border-radius:6px; font-size:14px; }
+</style>
+</head>
+<body>
+  <div class="hero">
+    <img src="icon-512.png" alt="AusFlow">
+    <h1>AusFlow</h1>
+    <p>Liquid Trade Waste Services</p>
+    <span class="tag">UAT · TEST BUILD</span>
+  </div>
+  <main>
+    <div class="warn" id="warn">Open this page in <b>Safari on your iPhone</b> to install.<span class="zh">请在 iPhone 的 Safari 中打开本页面进行安装。</span></div>
+    <div class="card">
+      <a class="btn" id="install" href="itms-services://?action=download-manifest&amp;url=__BASE_URL__/manifest.plist?b=__BUILD__">Install AusFlow</a>
+      <div class="meta"><span>Version __VERSION__ (__BUILD__)</span><span>__DATE__</span></div>
+    </div>
+
+    <h2>First install · 首次安装</h2>
+    <div class="card">
+      <ol>
+        <li>Tap <b>Install AusFlow</b>, then <b>Install</b> in the pop-up. Go to the home screen and wait for the icon to finish loading.
+          <span class="zh">点“Install AusFlow”，在弹窗中点“安装”，回到主屏幕等待图标下载完成。</span></li>
+        <li>Tap the AusFlow icon once. iOS will say Developer Mode is required — tap OK.
+          <span class="zh">点一次 AusFlow 图标，系统提示需要开发者模式，点“好”。</span></li>
+        <li>Open <b>Settings → Privacy &amp; Security → Developer Mode</b>, turn it on and restart the iPhone. After the restart, tap <b>Turn On</b>.
+          <span class="zh">打开“设置 → 隐私与安全性 → 开发者模式”，开启后重启手机；重启后点“打开”。</span></li>
+        <li>Open AusFlow and sign in with your AusFlow web console account.
+          <span class="zh">打开 AusFlow，用 Web 后台的账号登录。</span></li>
+      </ol>
+    </div>
+
+    <h2>Updating · 更新</h2>
+    <div class="card">Open this page again and tap <b>Install AusFlow</b>. Your sign-in is kept.
+      <span class="zh">再次打开本页点击安装即可覆盖更新，登录状态会保留。</span></div>
+
+    <h2>Can't install? · 无法安装？</h2>
+    <div class="card">Only iPhones registered for this test build can install it (iOS 16.4 or later). Send your iPhone's UDID to the AusFlow team to be added.
+      <span class="zh">只有已登记 UDID 的 iPhone（iOS 16.4 及以上）才能安装。如提示“无法安装”，请把手机 UDID 发给项目组登记。</span></div>
+  </main>
+<script>
+  var ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document);
+  if (!ios) document.getElementById('warn').style.display = 'block';
+</script>
+</body>
+</html>
