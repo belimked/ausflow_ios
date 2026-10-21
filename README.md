@@ -26,7 +26,8 @@ Only unit tests run locally. Functional tests run in GitHub Actions (**Tests** w
 | --- | --- | --- |
 | `smoke` | nothing | login screen validation and server error |
 | `auth` | secrets `E2E_USERNAME`, `E2E_PASSWORD` (an `ops` account on UAT) | sign in, Today, Me data summary, sign out |
-| `write` | also variables `E2E_COMPANY`, `E2E_PLATE`, `E2E_DEVICE` (and `E2E_DRIVER` when the company has several drivers) | choose driver/vehicle, find a device by code, start a pickup and cancel it (cancelling deletes it, so UAT keeps no pickup) |
+| `data` | also variables `E2E_COMPANY`, `E2E_PLATE`, `E2E_DEVICE` (and `E2E_DRIVER` when the company has several drivers) | join a vehicle by registration; choose driver/vehicle, find a device by code, start a pickup and cancel it |
+| `write` | (marker) | the flow writes to UAT; the pickup flow cancels its pickup, which deletes it |
 
 Flows whose secrets/variables are missing are skipped with a warning.
 

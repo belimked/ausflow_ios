@@ -1,4 +1,13 @@
-import { wasteCodeOf } from '../waste'
+import { wasteCodeOf, wasteOptions } from '../waste'
+
+describe('wasteOptions', () => {
+  it('puts the device waste first and removes duplicates case-insensitively', () => {
+    expect(wasteOptions('oily  water')).toEqual(['oily water', 'Grease Trap Waste', 'Sewage', 'Waste Oil'])
+  })
+  it('falls back to the common list', () => {
+    expect(wasteOptions(null)).toEqual(['Grease Trap Waste', 'Oily Water', 'Sewage', 'Waste Oil'])
+  })
+})
 
 describe('wasteCodeOf', () => {
   it('reads a leading EPA code', () => {

@@ -103,8 +103,8 @@ export function IconBadge({ name, tone = 'primary', size = 40 }: { name: SfName;
   )
 }
 
-export function Row({ icon, tone, title, subtitle, right, onPress, chevron = !!onPress }: {
-  icon?: SfName; tone?: Tone; title: string; subtitle?: string; right?: ReactNode; onPress?: () => void; chevron?: boolean
+export function Row({ icon, tone, title, subtitle, right, onPress, chevron = !!onPress, testID }: {
+  icon?: SfName; tone?: Tone; title: string; subtitle?: string; right?: ReactNode; onPress?: () => void; chevron?: boolean; testID?: string
 }) {
   const body = (
     <>
@@ -117,8 +117,8 @@ export function Row({ icon, tone, title, subtitle, right, onPress, chevron = !!o
       {chevron ? <Icon name="chevron.right" size={13} color={colors.faint} /> : null}
     </>
   )
-  if (!onPress) return <View style={styles.row}>{body}</View>
-  return <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { backgroundColor: '#F6F8FA' }]}>{body}</Pressable>
+  if (!onPress) return <View testID={testID} style={styles.row}>{body}</View>
+  return <Pressable testID={testID} onPress={onPress} style={({ pressed }) => [styles.row, pressed && { backgroundColor: '#F6F8FA' }]}>{body}</Pressable>
 }
 
 export const Divider = () => <View style={styles.divider} />

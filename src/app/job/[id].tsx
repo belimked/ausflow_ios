@@ -11,6 +11,7 @@ import { currentCoords } from '@/lib/geo'
 import { useIndex, useStore } from '@/lib/store'
 import { colors } from '@/lib/theme'
 import type { Pickup } from '@/lib/types'
+import { DEFAULT_WASTE, wasteCodeOf, wasteOptions } from '@/lib/waste'
 import { useNow } from '@/lib/useNow'
 
 export default function JobScreen() {
@@ -46,6 +47,8 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
   const { dev, title, vehicle } = useJobContext(pickup)
   const [volume, setVolume] = useState('')
   const [note, setNote] = useState('')
+  const [waste, setWaste] = useState(pickup.waste || DEFAULT_WASTE)
+  const wastes = wasteOptions(pickup.waste || dev?.waste)
   const [busy, setBusy] = useState<string | null>(null)
 
   const cap = dev?.capacity || 0
@@ -64,7 +67,7 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
       setBusy('Getting your location…')
       const coords = await currentCoords()
       setBusy('Saving…')
-      const done = await finishJob(pickup.id, { volume: v, note, coords })
+      const done = await finishJob(pickup.id, { volume: v, note, coords, waste })
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       onDone(done)
     } catch (e) {
@@ -128,6 +131,20 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
             {over ? `More than the ${fmtL(cap)} trap capacity — it will be flagged for review.` : cap ? `Trap capacity ${fmtL(cap)}` : 'Trap capacity unknown'}
           </Text>
         </Card>
+
+        <SectionTitle title="Waste type" />
+        <View style={s.wastes}>
+          {wastes.map((w) => {
+            const on = w.toLowerCase() === waste.toLowerCase()
+            const code = wasteCodeOf(w)
+            return (
+              <Pressable key={w} onPress={() => { Haptics.selectionAsync(); setWaste(w) }} style={[s.waste, on && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                <Text style={[s.wasteText, on && { color: '#fff' }]}>{w}</Text>
+                {code ? <Text style={[s.wasteCode, on && { color: 'rgba(255,255,255,0.8)' }]}>{code}</Text> : null}
+              </Pressable>
+            )
+          })}
+        </View>
 
         <SectionTitle title="Note (optional)" />
         <Card style={{ padding: 0 }}>
@@ -198,7 +215,7 @@ function Details({ pickup }: { pickup: Pickup }) {
         <Row icon="truck.box.fill" tone="neutral" title={vehicle?.plate || '—'} subtitle="Vehicle" />
         <Divider />
         <Row icon="location.fill" tone="neutral" title={fmtM(pickup.distance)} subtitle="Distance from device" />
-        {pickup.waste ? (<><Divider /><Row icon="drop.fill" tone="neutral" title={pickup.waste} subtitle="Waste type" /></>) : null}
+        {pickup.waste ? (<><Divider /><Row icon="drop.fill" tone="neutral" title={[pickup.waste, wasteCodeOf(pickup.waste)].filter(Boolean).join(' · ')} subtitle="Waste type" /></>) : null}
         {pickup.note ? (<><Divider /><Row icon="note.text" tone="neutral" title="Note" subtitle={pickup.note} /></>) : null}
         {dev ? (<><Divider /><Row icon="drop.circle.fill" title={`Device ${dev.ref}`} subtitle="View device" onPress={() => router.push(`/device/${dev.id}`)} /></>) : null}
       </Card>
@@ -223,6 +240,10 @@ const s = StyleSheet.create({
   presetText: { fontSize: 15, fontWeight: '800', color: colors.text },
   presetSub: { fontSize: 11, fontWeight: '600', color: colors.muted, marginTop: 1 },
   hint: { fontSize: 13, color: colors.muted, textAlign: 'center', marginTop: 12, fontWeight: '500' },
+  wastes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  waste: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  wasteText: { fontSize: 15, fontWeight: '700', color: colors.text },
+  wasteCode: { fontSize: 12, fontWeight: '700', color: colors.muted },
   note: { minHeight: 96, padding: 14, fontSize: 16, color: colors.text, textAlignVertical: 'top' },
   gpsHint: { fontSize: 12, color: colors.faint, marginTop: 14, paddingHorizontal: 4, lineHeight: 17 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, backgroundColor: 'rgba(242,245,248,0.96)', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },

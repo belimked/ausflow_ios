@@ -2,6 +2,7 @@ appId: com.ausflow
 name: Choose driver and vehicle, find a device by code, start a pickup and cancel it
 tags:
   - auth
+  - data
   - write
 ---
 # Cancelling deletes the pickup, so the run leaves no pickup behind on UAT.

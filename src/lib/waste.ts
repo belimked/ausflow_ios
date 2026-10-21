@@ -20,3 +20,15 @@ export function wasteCodeOf(text?: string | null) {
 }
 
 export const DEFAULT_WASTE = 'Grease Trap Waste'
+
+const COMMON = [DEFAULT_WASTE, 'Oily Water', 'Sewage', 'Waste Oil']
+
+// Choices for the collection form: the device's own waste type first, then the common ones with an EPA code.
+export function wasteOptions(deviceWaste?: string | null) {
+  const out: string[] = []
+  for (const w of [deviceWaste, ...COMMON]) {
+    const v = String(w || '').replace(/\s+/g, ' ').trim()
+    if (v && !out.some((o) => o.toLowerCase() === v.toLowerCase())) out.push(v)
+  }
+  return out
+}

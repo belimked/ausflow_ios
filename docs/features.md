@@ -4,7 +4,7 @@
 >
 > 技术栈：Expo SDK 58 · React Native 0.88 · React 19 · Expo Router · TypeScript
 > 后端：AusFlow API（当前指向 **UAT** — `src/lib/config.ts`）
-> 最后核对：2026-10-21
+> 最后核对：2026-10-21（含移植计划 Phase 0–1）
 
 ## 目录
 
@@ -68,6 +68,9 @@
 | 公司过滤 | 仅列出 `active` 且类型含 `transport` 的公司 | `setup.tsx` `isTransport` |
 | 司机/车辆过滤 | 仅列出该公司下 `active` 的司机、车辆 | `setup.tsx` |
 | 单项自动选中 | 公司下只有一个司机/车辆时自动选中 | `setup.tsx` `pickCompany` |
+| 扫车辆贴纸上车 | 扫 `VH…` 车辆 QR（或手动输入）→ 带入车辆所属公司；当前司机属于该公司则保留，公司只有一个在岗司机则自动选 | `scan.tsx` → `setup.tsx`、`lib/profile.ts` `joinVehicle` |
+| 按车牌找车 | 搜索全部在用运输公司的在用车辆（忽略空格/大小写），点选即带入公司和车辆 | `setup.tsx`、`lib/profile.ts` `findVehiclesByPlate` |
+| 换车提醒 | 原车仍有余量时提示"余量留在原车，直到卸料或转料"，确认后才换 | `setup.tsx` `save` |
 | 车辆信息 | 显示车牌、大/小车、罐容量（L） | `setup.tsx` |
 | 按用户持久化 | profile 按 `profile_<userId>` 存入 SecureStore | `store.tsx` `setProfile` |
 | 空态引导 | 无 active 司机/车辆时提示到 web 后台维护 | `setup.tsx` `EmptyState` |
@@ -80,6 +83,7 @@
 | 作业身份卡 | 显示当前司机·车牌·公司，点按进入 Setup | `index.tsx` |
 | 扫码入口 | 大按钮；未设身份则先去 Setup；只读账号禁用 | `index.tsx` |
 | 进行中清运卡 | 若本司机有进行中清运：显示设备、已用时（实时计时）、"完成清运"按钮 | `index.tsx` + `useNow` |
+| 车上余量 | 当前车辆余量 / 罐容量进度条，≥90% 标红 | `index.tsx` `OnBoard` |
 | 统计三联 | 今日完成数、今日收集总量(L)、逾期设备数 | `index.tsx` `Stat` |
 | Due next | 即将到期的前 5 台设备（排除进行中） | `index.tsx` |
 | Completed today | 今日已完成清运列表 | `index.tsx` |
@@ -93,7 +97,8 @@
 | 手电筒 | 开关切换 | `scan.tsx` `torch` |
 | 手动输入 | 输入 QR / 标签 / 设备 ref（如 DV539135） | `scan.tsx` `ManualEntry` |
 | 权限处理 | 未授权时引导：允许相机 / 打开设置 / 改为手动输入 | `scan.tsx` |
-| 码解析 | 支持 `http://QR2id.net/?X@<code>` 取 `@` 后编码；匹配 ref / qr / 多标签 | `store.tsx` `findDeviceByCode` |
+| 码解析 | 支持 `http://QR2id.net/?X@<code>` 取 `@` 后编码；匹配 ref / qr / 多标签 | `lib/codes.ts` `findDeviceByCode` |
+| 通用识别 | 同一扫码入口识别设备、车辆贴纸（→上车）、处理设施牌（提示卸料暂未开放）；从 Setup 进入时只接受车辆 | `lib/codes.ts` `resolveCode`、`scan.tsx` |
 | 防重触发 | 扫中后锁定 1.8s，避免重复跳转 | `scan.tsx` `locked` |
 | 未找到反馈 | 错误触感 + Toast"未找到对应设备" | `scan.tsx` |
 | 成功跳转 | 命中设备 → 跳设备详情 | `scan.tsx` → `device/[id]` |
@@ -111,6 +116,7 @@
 | 最近清运 | 该设备最近 5 条已完成清运 | `device/[id].tsx` |
 | 动作按钮（上下文相关） | 开始清运 / 完成（本人进行中）/ 他人进行中 / 先完成你当前清运 / 去设置身份 | `device/[id].tsx` `action` |
 | 非 Active 设备确认 | 设备非 Active 时开始清运需二次确认 | `device/[id].tsx` `start` |
+| 仅服务不收料 | 记录"已服务但未收料"：生成 0 L、`Service only` 的已完成记录，更新上次服务并写变更日志（记录方式待客户确认） | `device/[id].tsx` `recordService`、`commands.ts` `planServiceOnly` |
 | 进场距离预取 | 进入页面静默取最近已知定位，用于显示"多少米外" | `device/[id].tsx` + `quietCoords` |
 
 ## 7. 清运作业（开始/完成/取消）
@@ -131,7 +137,7 @@
 
 | 状态 | 功能 |
 |---|---|
-| **完成表单**（本人进行中且可写） | 体积输入：±50 步进、按容量生成 25/50/75/100% 预设；超容量红色警示；备注（≤500 字）；提示完成时记录定位、>200m 会被标记；底部"完成 · N L"按钮；"取消清运"（二次确认，destructive） |
+| **完成表单**（本人进行中且可写） | 废物类型选择（设备类型优先 + 常见类型，显示 EPA 代码）；体积输入：±50 步进、按容量生成 25/50/75/100% 预设；超容量红色警示；备注（≤500 字）；提示完成时记录定位、>200m 会被标记；底部"完成 · N L"按钮；"取消清运"（二次确认，destructive） |
 | **成功页** | 大对勾、设备名、体积、在场时长、距设备距离、标记胶囊；"扫下一台" / "回到 Today" |
 | **只读详情** | 进行中/已完成状态、体积、标记、时间、司机、车辆、距离、废物类型、备注、跳转设备 |
 
@@ -161,8 +167,8 @@
 | 功能 | 说明 | 代码位置 |
 |---|---|---|
 | 用户卡 | 头像首字母、显示名、@用户名、角色徽章 | `src/app/(tabs)/profile.tsx` |
-| 作业身份 | 当前司机/车辆/公司，点按去 Setup | `profile.tsx` |
-| 刷新数据 | 手动刷新，显示上次更新时间与设备数 | `profile.tsx` |
+| 作业身份 | 当前司机/车辆/公司，点按去 Setup；当前车辆余量 | `profile.tsx` |
+| 刷新数据 | 手动刷新，显示上次更新时间、设备数、设施数 | `profile.tsx` |
 | 环境信息 | 显示环境标签与 API 域名 | `profile.tsx` |
 | App 版本 | 读取 `expoConfig.version` | `profile.tsx` |
 | 登出 | 二次确认 | `profile.tsx` |
@@ -171,7 +177,9 @@
 
 | 机制 | 说明 | 代码位置 |
 |---|---|---|
-| 全量拉取 | 登录/刷新时 `GET /state`，返回全量业务数据 + 各类 seq 序号 | `api.ts` `fetchState` |
+| 全量拉取 | 登录/刷新时 `GET /state`；App 读取 公司/位置/设备/司机/车辆/设施/清运/转料/卸料/问题上报 + 各类 seq 序号 | `api.ts` `fetchState` |
+| 命令式写入 | 每个写操作是一个带发生时间的命令（`lib/commands.ts`），经写入层（`lib/outbox.ts`）基于最新数据规划为 `/sync` 内容；目前在线直发，离线队列将复用 | `commands.ts` `outbox.ts` |
+| 余量与去向 | 车上余量、装载周期、收料去向（已卸/车上）与 web 控制台同一算法 | `lib/load.ts` |
 | 增量提交 | `POST /sync`，带 upserts / deletes / seq | `api.ts` `sync` |
 | 写前刷新 | 每次写操作先 `fresh()` 拉最新，再做"已占用/已完成"等校验，避免并发冲突 | `store.tsx` `fresh` |
 | 内存索引 | 以 Map 建设备/位置/司机/车辆/公司/清运索引，及"按设备的进行中清运"映射 | `store.tsx` `useIndex` |
@@ -196,12 +204,11 @@
 
 相对老 WasteID（QR2id App）司机端，以下功能当前**未包含**：
 
-- 车辆扫码 Join / Change Vehicle（改为列表手动选）
 - 拖车/挂车（Trailer/Dog）绑定与多拖车
 - 车辆间转料（Transfer / Offload Waste）
 - 消费单（Consignment）模型与车载清单
 - 卸料/排放到处理设施（Deliver/Discharge，扫设施 QR 牌）
-- 收料时选废物类型 / 目的处理设施
+- 收料时选目的处理设施（后端 `pickups` 无字段，待加列）
 - 拍照上传（清运/问题照片）
 - 问题/服务异常上报（Report Issue / Service Problem）
 - 离线模式

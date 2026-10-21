@@ -69,6 +69,44 @@ describe('finishPickup', () => {
   })
 })
 
+describe('finishPickup waste type', () => {
+  const running = pickup({ status: 'ongoing', volume: null, endAt: null, waste: 'Grease Trap Waste' })
+  const finish = (waste?: string) => planCommand(data({ pickups: [running] }),
+    { kind: 'finishPickup', at, pickupId: 'PK0001', volume: 100, note: '', coords: here, userName: 'Sam', waste }).result as Pickup
+
+  it('uses the waste type chosen by the driver', () => {
+    expect(finish(' Oily  Water ').waste).toBe('Oily Water')
+  })
+  it('keeps the existing waste type when none is chosen', () => {
+    expect(finish().waste).toBe('Grease Trap Waste')
+    expect(finish('  ').waste).toBe('Grease Trap Waste')
+  })
+})
+
+describe('serviceOnly', () => {
+  const service = (d = data({ seq: { PK: 2, CL: 5 } }), coords: typeof here | null = here) =>
+    planCommand(d, { kind: 'serviceOnly', at, deviceId: 'DV0001', profile, coords, note: ' lid cleaned ', userName: 'Sam' })
+
+  it('records a finished 0 L pickup and services the device', () => {
+    const plan = service()
+    expect(plan.result).toMatchObject({
+      id: 'PK0003', status: 'done', volume: 0, waste: 'Service only', startAt: at, endAt: at,
+      note: 'lid cleaned', flags: [], distance: 0, vehicleId: 'VE0001',
+    })
+    expect(plan.sync?.upserts.devices).toEqual([expect.objectContaining({ lastService: at })])
+    expect(plan.sync?.upserts.changeLogs).toEqual([expect.objectContaining({ id: 'CL0006', user: 'Sam' })])
+    expect(plan.sync?.seq).toEqual({ PK: 3, CL: 6 })
+  })
+
+  it('flags a missing location', () => {
+    expect((service(undefined, null).result as Pickup).flags).toEqual(['nolocation'])
+  })
+
+  it('follows the same rules as starting a pickup', () => {
+    expect(() => service(data({ pickups: [pickup({ status: 'ongoing', driverId: 'DR0099' })] }))).toThrow('A pickup is already in progress at this device.')
+  })
+})
+
 describe('cancelPickup', () => {
   it('deletes an ongoing pickup', () => {
     const plan = planCommand(data({ pickups: [pickup({ status: 'ongoing' })], seq: { PK: 1 } }), { kind: 'cancelPickup', at, pickupId: 'PK0001' })

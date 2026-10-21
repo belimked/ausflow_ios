@@ -15,7 +15,7 @@ export default function DeviceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { data, profile, canWrite, startJob } = useStore()
+  const { data, profile, canWrite, startJob, serviceOnly } = useStore()
   const ix = useIndex()
   const [here, setHere] = useState<Coords | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -60,6 +60,31 @@ export default function DeviceScreen() {
     }
   }
 
+  // Old WasteID "Service Device": serviced without collecting waste. Recorded as a 0 L pickup (to confirm with the client).
+  function recordService() {
+    Alert.prompt('Service only', 'Record that this device was serviced without collecting any waste. Add a note if needed.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Record service', onPress: async (note?: string) => {
+          if (!dev) return
+          try {
+            setBusy('Getting your location…')
+            const coords = await currentCoords()
+            setBusy('Saving…')
+            const p = await serviceOnly(dev.id, { note: note || '', coords })
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+            router.replace(`/job/${p.id}`)
+          } catch (e) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+            Alert.alert('Could not record the service', (e as Error).message)
+          } finally {
+            setBusy(null)
+          }
+        },
+      },
+    ], 'plain-text')
+  }
+
   function directions() {
     if (dev?.lat == null || dev?.lng == null) return
     const q = encodeURIComponent(deviceTitle(dev, loc))
@@ -78,14 +103,19 @@ export default function DeviceScreen() {
     } else if (myOngoing) {
       action = <Button title="Finish your current pickup first" kind="secondary" icon="arrow.uturn.right" onPress={() => router.push(`/job/${myOngoing.id}`)} />
     } else {
-      action = <Button testID="device-start" title={busy || 'Start pickup'} icon="play.fill" onPress={start} loading={!!busy} />
+      action = (
+        <>
+          <Button testID="device-start" title={busy || 'Start pickup'} icon="play.fill" onPress={start} loading={!!busy} />
+          <Button testID="device-service-only" title="Service only · no waste collected" kind="ghost" size="md" onPress={recordService} disabled={!!busy} style={{ marginTop: 4 }} />
+        </>
+      )
     }
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <Stack.Screen options={{ title: dev.ref }} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: action ? 120 : 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: action ? 170 : 40 }}>
         <Card>
           <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
             <IconBadge name="drop.fill" tone="primary" size={52} />

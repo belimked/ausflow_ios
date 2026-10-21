@@ -27,8 +27,9 @@ interface Store {
   refresh: () => Promise<void>
   setProfile: (p: WorkProfile) => Promise<void>
   startJob: (deviceId: string, coords: Coords | null) => Promise<Pickup>
-  finishJob: (pickupId: string, input: { volume: number; note: string; coords: Coords | null }) => Promise<Pickup>
+  finishJob: (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string }) => Promise<Pickup>
   cancelJob: (pickupId: string) => Promise<void>
+  serviceOnly: (deviceId: string, input: { note: string; coords: Coords | null }) => Promise<Pickup>
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -129,7 +130,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return submit<Pickup>({ kind: 'startPickup', at: now(), deviceId, profile, coords })
   }, [profile, submit])
 
-  const finishJob = useCallback(async (pickupId: string, input: { volume: number; note: string; coords: Coords | null }) => {
+  const finishJob = useCallback(async (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string }) => {
     const userName = sessionRef.current?.user.displayName || ''
     return submit<Pickup>({ kind: 'finishPickup', at: now(), pickupId, ...input, userName })
   }, [submit])
@@ -138,12 +139,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await submit<null>({ kind: 'cancelPickup', at: now(), pickupId })
   }, [submit])
 
+  const serviceOnly = useCallback(async (deviceId: string, input: { note: string; coords: Coords | null }) => {
+    if (!profile) throw new CommandError('Choose your driver and vehicle first.')
+    const userName = sessionRef.current?.user.displayName || ''
+    return submit<Pickup>({ kind: 'serviceOnly', at: now(), deviceId, profile, ...input, userName })
+  }, [profile, submit])
+
   const canWrite = !!session && ['admin', 'ops', 'authority'].includes(session.user.role)
 
   const value = useMemo<Store>(() => ({
     ready, session, data, loading, error, loadedAt, profile, canWrite,
-    signIn, signOut: clear, refresh, setProfile, startJob, finishJob, cancelJob,
-  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, signIn, clear, refresh, setProfile, startJob, finishJob, cancelJob])
+    signIn, signOut: clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly,
+  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, signIn, clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

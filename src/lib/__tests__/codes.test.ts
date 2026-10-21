@@ -1,5 +1,24 @@
-import { codeOf, findDeviceByCode } from '../codes'
+import { codeOf, findDeviceByCode, resolveCode } from '../codes'
 import { device } from './fixtures'
+
+describe('resolveCode', () => {
+  const d = {
+    devices: [device()],
+    vehicles: [{ id: 'VE0001', plate: '123 ABC', qr: 'VHABCDEFGHIJ', status: 'active' }],
+    facilities: [{ id: 'FA0001', name: 'Bolivar WWTP', qr: 'FAKLMNOPQRST', status: 'active' }],
+  }
+
+  it('recognises vehicle stickers, facility plates and devices', () => {
+    expect(resolveCode(d, 'vhabcdefghij')).toMatchObject({ kind: 'vehicle', item: { id: 'VE0001' } })
+    expect(resolveCode(d, 'http://QR2id.net/?X@FAKLMNOPQRST')).toMatchObject({ kind: 'facility', item: { id: 'FA0001' } })
+    expect(resolveCode(d, 'DV539135')).toMatchObject({ kind: 'device', item: { id: 'DV0001' } })
+  })
+
+  it('returns null when nothing matches', () => {
+    expect(resolveCode(d, 'VH0000000000')).toBeNull()
+    expect(resolveCode(d, '')).toBeNull()
+  })
+})
 
 describe('codeOf', () => {
   it('takes the part after the last @ of a QR2id URL', () => {

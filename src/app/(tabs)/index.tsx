@@ -113,6 +113,8 @@ export default function Today() {
           </Pressable>
         )}
 
+        {vehicle ? <OnBoard litres={Math.max(0, ix.loads.get(vehicle.id) || 0)} tank={vehicle.tank || 0} plate={vehicle.plate} /> : null}
+
         <View style={s.stats}>
           <Stat label="Pickups today" value={String(view?.doneToday.length || 0)} icon="checkmark.circle.fill" tone="success" />
           <Stat label="Collected" value={fmtL(view?.litres || 0)} icon="drop.fill" tone="primary" />
@@ -139,7 +141,35 @@ export default function Today() {
   )
 }
 
+// Waste on board the selected vehicle; red from 90 % of the tank, like the web console's load gauge.
+function OnBoard({ litres, tank, plate }: { litres: number; tank: number; plate: string }) {
+  const pct = tank ? Math.min(1, litres / tank) : 0
+  const full = tank > 0 && litres / tank >= 0.9
+  return (
+    <Card style={s.load}>
+      <View style={s.loadHead}>
+        <Text style={s.loadLabel}>ON BOARD · {plate}</Text>
+        <Text style={[s.loadValue, full && { color: colors.danger }]}>
+          {fmtL(litres)}{tank ? <Text style={s.loadTank}> / {fmtL(tank)}</Text> : null}
+        </Text>
+      </View>
+      {tank ? (
+        <View style={s.bar}>
+          <View style={[s.barFill, { width: `${pct * 100}%`, backgroundColor: full ? colors.danger : colors.primaryBright }]} />
+        </View>
+      ) : null}
+    </Card>
+  )
+}
+
 const s = StyleSheet.create({
+  load: { marginTop: 14, paddingVertical: 14 },
+  loadHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
+  loadLabel: { flexShrink: 1, fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 0.6 },
+  loadValue: { fontSize: 18, fontWeight: '800', color: colors.text },
+  loadTank: { fontSize: 13, fontWeight: '600', color: colors.faint },
+  bar: { height: 8, borderRadius: 4, backgroundColor: colors.bg, marginTop: 10, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 4 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { paddingHorizontal: 20, paddingBottom: 56, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   heroTop: { flexDirection: 'row', alignItems: 'flex-start' },

@@ -1,11 +1,12 @@
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import * as Haptics from 'expo-haptics'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useRef, useState } from 'react'
 import { KeyboardAvoidingView, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Icon } from '@/components/ui'
-import { findDeviceByCode, useStore } from '@/lib/store'
+import { codeOf, resolveCode } from '@/lib/codes'
+import { useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
 
 const FRAME = 260
@@ -13,25 +14,35 @@ const FRAME = 260
 export default function Scan() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  // mode=vehicle comes from the driver & vehicle screen and only accepts vehicle stickers.
+  const { mode } = useLocalSearchParams<{ mode?: 'vehicle' }>()
+  const vehicleOnly = mode === 'vehicle'
   const { data } = useStore()
   const [permission, requestPermission] = useCameraPermissions()
   const [torch, setTorch] = useState(false)
   const [manual, setManual] = useState(false)
   const [code, setCode] = useState('')
-  const [notFound, setNotFound] = useState<string | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
   const locked = useRef(false)
 
   function resolve(raw: string) {
     if (locked.current || !data) return
     locked.current = true
-    const dev = findDeviceByCode(data.devices, raw)
-    if (dev) {
+    const hit = resolveCode(data, raw)
+    if (hit?.kind === 'vehicle') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-      router.replace(`/device/${dev.id}`)
+      router.replace({ pathname: '/setup', params: { vehicleId: hit.item.id } })
+      return
+    }
+    if (hit?.kind === 'device' && !vehicleOnly) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      router.replace(`/device/${hit.item.id}`)
       return
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-    setNotFound(raw.includes('@') ? raw.slice(raw.lastIndexOf('@') + 1) : raw)
+    if (vehicleOnly && hit) setProblem('That is not a vehicle sticker.')
+    else if (hit?.kind === 'facility') setProblem(`${hit.item.name} is a treatment facility. Offloading is not available in this version yet.`)
+    else setProblem(`No ${vehicleOnly ? 'vehicle' : 'device or vehicle'} found for “${codeOf(raw) || raw}”`)
     setTimeout(() => { locked.current = false }, 1800)
   }
 
@@ -54,7 +65,7 @@ export default function Scan() {
           title={permission.canAskAgain ? 'Allow camera' : 'Open Settings'} icon="camera"
           onPress={() => (permission.canAskAgain ? requestPermission() : Linking.openSettings())} style={{ marginTop: 24, alignSelf: 'stretch' }} />
         <Button title="Enter code instead" kind="ghost" onPress={() => setManual(true)} style={{ alignSelf: 'stretch' }} />
-        {manual && <ManualEntry code={code} setCode={setCode} onSubmit={() => resolve(code)} error={notFound} />}
+        {manual && <ManualEntry code={code} setCode={setCode} onSubmit={() => resolve(code)} error={problem} vehicleOnly={vehicleOnly} />}
       </View>
     )
   }
@@ -81,11 +92,11 @@ export default function Scan() {
           <View style={s.mask} />
         </View>
         <View style={[s.mask, { alignItems: 'center', paddingTop: 28, paddingHorizontal: 32 }]}>
-          <Text style={s.hint}>Point the camera at the QR label on the grease trap</Text>
-          {notFound ? (
+          <Text style={s.hint}>{vehicleOnly ? 'Point the camera at the QR sticker on the vehicle' : 'Scan the QR label on a grease trap or a vehicle sticker'}</Text>
+          {problem && !manual ? (
             <View style={s.toast}>
               <Icon name="exclamationmark.triangle.fill" size={16} color="#FFB224" />
-              <Text style={s.toastText} numberOfLines={2}>No device found for “{notFound}”</Text>
+              <Text style={s.toastText} numberOfLines={3}>{problem}</Text>
             </View>
           ) : null}
         </View>
@@ -93,7 +104,7 @@ export default function Scan() {
 
       <View style={[s.topBar, { top: insets.top + 8 }]}>
         {close}
-        <Text style={s.topTitle}>Scan QR code</Text>
+        <Text style={s.topTitle}>{vehicleOnly ? 'Scan vehicle' : 'Scan QR code'}</Text>
         <Pressable onPress={() => setTorch((t) => !t)} hitSlop={10} style={[s.round, torch && { backgroundColor: '#fff' }]}>
           <Icon name={torch ? 'flashlight.on.fill' : 'flashlight.off.fill'} size={18} color={torch ? colors.text : '#fff'} />
         </Pressable>
@@ -101,7 +112,7 @@ export default function Scan() {
 
       <View style={[s.bottom, { paddingBottom: insets.bottom + 16 }]}>
         {manual ? (
-          <ManualEntry code={code} setCode={setCode} onSubmit={() => resolve(code)} error={null} onCancel={() => setManual(false)} />
+          <ManualEntry code={code} setCode={setCode} onSubmit={() => resolve(code)} error={problem} vehicleOnly={vehicleOnly} onCancel={() => setManual(false)} />
         ) : (
           <Pressable testID="scan-manual" onPress={() => setManual(true)} style={s.manualBtn}>
             <Icon name="keyboard" size={18} color="#fff" />
@@ -113,18 +124,22 @@ export default function Scan() {
   )
 }
 
-function ManualEntry({ code, setCode, onSubmit, error, onCancel }: { code: string; setCode: (v: string) => void; onSubmit: () => void; error: string | null; onCancel?: () => void }) {
+function ManualEntry({ code, setCode, onSubmit, error, vehicleOnly, onCancel }: {
+  code: string; setCode: (v: string) => void; onSubmit: () => void; error: string | null; vehicleOnly: boolean; onCancel?: () => void
+}) {
   return (
     <KeyboardAvoidingView behavior="padding" style={s.sheet}>
-      <Text style={s.sheetTitle}>Enter device code</Text>
-      <Text style={s.sheetSub}>The QR code, tag ID or device ref (e.g. DV539135).</Text>
+      <Text style={s.sheetTitle}>{vehicleOnly ? 'Enter vehicle code' : 'Enter code'}</Text>
+      <Text style={s.sheetSub}>
+        {vehicleOnly ? 'The code printed under the vehicle QR sticker (VH…).' : 'A device QR code, tag ID or ref (e.g. DV539135), or a vehicle sticker code (VH…).'}
+      </Text>
       <TextInput
         testID="scan-code" value={code} onChangeText={setCode} autoFocus autoCapitalize="characters" autoCorrect={false}
         placeholder="Code" placeholderTextColor={colors.faint} style={s.codeInput} returnKeyType="search" onSubmitEditing={onSubmit} />
-      {error ? <Text style={s.sheetError}>No device found for “{error}”</Text> : null}
+      {error ? <Text style={s.sheetError}>{error}</Text> : null}
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
         {onCancel ? <Button title="Cancel" kind="secondary" onPress={onCancel} style={{ flex: 1 }} size="md" /> : null}
-        <Button testID="scan-find" title="Find device" icon="magnifyingglass" onPress={onSubmit} disabled={!code.trim()} style={{ flex: 2 }} size="md" />
+        <Button testID="scan-find" title="Find" icon="magnifyingglass" onPress={onSubmit} disabled={!code.trim()} style={{ flex: 2 }} size="md" />
       </View>
     </KeyboardAvoidingView>
   )
