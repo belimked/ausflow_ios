@@ -15,6 +15,17 @@ appId: com.ausflow
 - inputText: ${E2E_PASSWORD}
 # "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
 - pressKey: Enter
+# iOS may offer to save the password in a system sheet that covers the app; dismiss it when it shows up.
+- extendedWaitUntil:
+    visible: "Not Now|Good (morning|afternoon|evening).*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening).*"
-    timeout: 30000
+    timeout: 15000
