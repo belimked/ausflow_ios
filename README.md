@@ -20,7 +20,7 @@ Feature inventory: [docs/features.md](docs/features.md). Old WasteID feature por
 
 ## Tests
 
-Only unit tests run locally. Functional tests run in GitHub Actions (**Tests** workflow, every push to any branch): typecheck, lint and unit tests on Linux, then a Release simulator build on macOS driven by [Maestro](https://maestro.mobile.dev) flows in `.maestro/`. The JUnit report and failure screenshots are uploaded as the `maestro-<run>` artifact.
+Only unit tests run locally. Functional tests run in GitHub Actions (**Tests** workflow, every push to any branch): typecheck, lint and unit tests on Linux, then a Release simulator build on macOS driven by [Maestro](https://maestro.mobile.dev) flows in `.maestro/`. The JUnit report and failure screenshots are uploaded as the `maestro-<run>` artifact. The simulator build is cached by a fingerprint of the app's files (`src/`, `assets/`, `app.json`, package files): when only flows, docs or workflows change, the next run reuses it and skips the ~25-minute build.
 
 | Flow tag | Needs | What it covers |
 | --- | --- | --- |

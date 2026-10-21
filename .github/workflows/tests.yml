@@ -44,28 +44,61 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
       # Maestro needs Java 17+.
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
-      - run: npm ci
+      # The simulator build only depends on the app's own files, not on the flows, docs or workflows. Reuse it when
+      # none of them changed, so iterating on .maestro/ costs minutes instead of a 25-minute rebuild.
+      - name: App fingerprint
+        id: fp
+        run: |
+          XCODE=$(xcodebuild -version | head -1 | tr ' ' '-')
+          echo "key=ios-sim-app-$XCODE-${{ hashFiles('src/**', 'assets/**', 'app.json', 'package.json', 'package-lock.json', 'tsconfig.json', 'babel.config.*', 'metro.config.*') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore prebuilt app
+        id: app
+        uses: actions/cache/restore@v4
+        with:
+          path: build/AusFlow.app
+          key: ${{ steps.fp.outputs.key }}
+
+      - uses: actions/setup-node@v4
+        if: steps.app.outputs.cache-hit != 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - if: steps.app.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Generate native project
+        if: steps.app.outputs.cache-hit != 'true'
         run: npx expo prebuild -p ios --clean
 
       # Release bundles the JS into the app, so no Metro server is needed. Simulator builds need no signing.
       - name: Build for simulator
+        if: steps.app.outputs.cache-hit != 'true'
         run: |
           xcodebuild -workspace ios/AusFlow.xcworkspace -scheme AusFlow -configuration Release \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO -quiet build
+          mkdir -p build
+          cp -R "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator/AusFlow.app" build/
+
+      # Saved right away (not at the end of the job) so a failing flow still leaves the build for the next run.
+      - name: Save prebuilt app
+        if: steps.app.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build/AusFlow.app
+          key: ${{ steps.fp.outputs.key }}
+
+      - name: Using a prebuilt app
+        if: steps.app.outputs.cache-hit == 'true'
+        run: echo "App files unchanged since ${{ steps.fp.outputs.key }} was built; skipping the build."
 
       - name: Boot simulator and install the app
         run: |
@@ -73,7 +106,7 @@ jobs:
           [ -n "$UDID" ] && [ "$UDID" != null ] || { echo "::error::No iPhone simulator available"; exit 1; }
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator/AusFlow.app"
+          xcrun simctl install "$UDID" build/AusFlow.app
           # Avoid the location prompt and give the pickup flow a fixed position (Adelaide CBD).
           xcrun simctl privacy "$UDID" grant location com.ausflow || true
           xcrun simctl location "$UDID" set -34.9285,138.6007 || true
