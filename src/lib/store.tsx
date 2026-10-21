@@ -4,7 +4,7 @@ import * as api from './api'
 import { CommandError, type Command } from './commands'
 import { vehicleLoads } from './load'
 import { createOutbox } from './outbox'
-import type { AppData, Coords, Pickup, User, WorkProfile } from './types'
+import type { AppData, Coords, IssueCategory, Pickup, ReportedIssue, User, WorkProfile } from './types'
 
 export { findDeviceByCode } from './codes'
 
@@ -30,6 +30,8 @@ interface Store {
   finishJob: (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string }) => Promise<Pickup>
   cancelJob: (pickupId: string) => Promise<void>
   serviceOnly: (deviceId: string, input: { note: string; coords: Coords | null }) => Promise<Pickup>
+  reportIssue: (deviceId: string, input: { category: IssueCategory; description: string }) => Promise<ReportedIssue>
+  uploadPhotos: (target: { type: string; kind: string }, id: string, photos: { dataUrl: string; name: string }[]) => Promise<{ uploaded: number; failed: number }>
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -145,12 +147,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return submit<Pickup>({ kind: 'serviceOnly', at: now(), deviceId, profile, ...input, userName })
   }, [profile, submit])
 
+  const reportIssue = useCallback(async (deviceId: string, input: { category: IssueCategory; description: string }) => {
+    const userName = sessionRef.current?.user.displayName || ''
+    return submit<ReportedIssue>({ kind: 'reportIssue', at: now(), deviceId, ...input, userName })
+  }, [submit])
+
+  // Photos go to /photos, not /sync. One failed photo does not stop the others; the caller reports what failed.
+  const uploadPhotos = useCallback(async (target: { type: string; kind: string }, id: string, photos: { dataUrl: string; name: string }[]) => {
+    const s = sessionRef.current
+    if (!s) throw new Error('Not signed in')
+    let uploaded = 0
+    for (const p of photos) {
+      try {
+        await api.uploadPhoto(s.token, { type: target.type, id, kind: target.kind, name: p.name, dataUrl: p.dataUrl })
+        uploaded++
+      } catch {
+        // counted below
+      }
+    }
+    return { uploaded, failed: photos.length - uploaded }
+  }, [])
+
   const canWrite = !!session && ['admin', 'ops', 'authority'].includes(session.user.role)
 
   const value = useMemo<Store>(() => ({
     ready, session, data, loading, error, loadedAt, profile, canWrite,
-    signIn, signOut: clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly,
-  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, signIn, clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly])
+    signIn, signOut: clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly, reportIssue, uploadPhotos,
+  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, signIn, clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly, reportIssue, uploadPhotos])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

@@ -4,7 +4,7 @@
 >
 > 技术栈：Expo SDK 58 · React Native 0.88 · React 19 · Expo Router · TypeScript
 > 后端：AusFlow API（当前指向 **UAT** — `src/lib/config.ts`）
-> 最后核对：2026-10-21（含移植计划 Phase 0–1）
+> 最后核对：2026-10-21（含移植计划 Phase 0–2）
 
 ## 目录
 
@@ -116,6 +116,7 @@
 | 最近清运 | 该设备最近 5 条已完成清运 | `device/[id].tsx` |
 | 动作按钮（上下文相关） | 开始清运 / 完成（本人进行中）/ 他人进行中 / 先完成你当前清运 / 去设置身份 | `device/[id].tsx` `action` |
 | 非 Active 设备确认 | 设备非 Active 时开始清运需二次确认 | `device/[id].tsx` `start` |
+| 问题区块 | 列出该设备未关闭的问题（分类、描述、日期、上报人）；可写账号可"上报问题" | `device/[id].tsx`、`lib/issues.ts` |
 | 仅服务不收料 | 记录"已服务但未收料"：生成 0 L、`Service only` 的已完成记录，更新上次服务并写变更日志（记录方式待客户确认） | `device/[id].tsx` `recordService`、`commands.ts` `planServiceOnly` |
 | 进场距离预取 | 进入页面静默取最近已知定位，用于显示"多少米外" | `device/[id].tsx` + `quietCoords` |
 
@@ -140,6 +141,15 @@
 | **完成表单**（本人进行中且可写） | 废物类型选择（设备类型优先 + 常见类型，显示 EPA 代码）；体积输入：±50 步进、按容量生成 25/50/75/100% 预设；超容量红色警示；备注（≤500 字）；提示完成时记录定位、>200m 会被标记；底部"完成 · N L"按钮；"取消清运"（二次确认，destructive） |
 | **成功页** | 大对勾、设备名、体积、在场时长、距设备距离、标记胶囊；"扫下一台" / "回到 Today" |
 | **只读详情** | 进行中/已完成状态、体积、标记、时间、司机、车辆、距离、废物类型、备注、跳转设备 |
+
+## 8a. 问题上报（Report a problem）
+
+| 功能 | 说明 | 代码位置 |
+|---|---|---|
+| 分类 | 挡板损坏 / 无冲洗龙头 / 停业装修 / 无法进入 / QR 缺失 / 其他（与 web 一致） | `src/app/issue/[deviceId].tsx` |
+| 描述 | 选"其他"时必填，最多 500 字 | 同上、`commands.ts` `planReportIssue` |
+| 照片 | 拍照或相册，最多 5 张；压到 1600px JPEG 0.82，超过 1.1MB 自动降级重试；以 `issue` 类型上传 | `components/PhotoPicker.tsx`、`lib/photo-file.ts`、`lib/photos.ts` |
+| 写入 | 写 `reportedIssues`（`RI…`，状态 open，来源 App）；照片上传失败不影响问题本身，会提示失败张数 | `store.tsx` `reportIssue` / `uploadPhotos` |
 
 ## 9. Pickups（清运历史）
 
@@ -209,8 +219,7 @@
 - 消费单（Consignment）模型与车载清单
 - 卸料/排放到处理设施（Deliver/Discharge，扫设施 QR 牌）
 - 收料时选目的处理设施（后端 `pickups` 无字段，待加列）
-- 拍照上传（清运/问题照片）
-- 问题/服务异常上报（Report Issue / Service Problem）
+- 清运照片（后端 `PHOTO_KINDS` 未允许 `pickup`，待后端放开）
 - 离线模式
 - App 内管理功能（公司/用户/车辆维护、消费单复核、CSV 导出）——均在 web 后台
 

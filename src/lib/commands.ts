@@ -3,7 +3,8 @@ import { LOCATION_FLAG_METRES } from './config'
 import { normName } from './format'
 import { distanceM } from './geo-math'
 import { PREFIX, nextId } from './ids'
-import type { AppData, ChangeLog, Coords, Device, Pickup, PickupFlag, WorkProfile } from './types'
+import { ISSUE_CATEGORIES } from './issues'
+import type { AppData, ChangeLog, Coords, Device, IssueCategory, Pickup, PickupFlag, ReportedIssue, WorkProfile } from './types'
 import { DEFAULT_WASTE } from './waste'
 
 // Every write is a command: plain data describing what the driver did and when. planCommand() turns it into a
@@ -15,6 +16,8 @@ export type Command =
   | { kind: 'cancelPickup'; at: string; pickupId: string }
   // Old WasteID "Service Device": the device was serviced but no waste was collected.
   | { kind: 'serviceOnly'; at: string; deviceId: string; profile: WorkProfile; coords: Coords | null; note: string; userName: string }
+  // Old WasteID "Report Issue / Service Problem", reviewed and resolved in the web console.
+  | { kind: 'reportIssue'; at: string; deviceId: string; category: IssueCategory; description: string; userName: string }
 
 // A rule the current server state does not allow; the message is shown to the driver as is.
 export class CommandError extends Error {}
@@ -113,11 +116,25 @@ export function planCancelPickup(d: AppData, c: Extract<Command, { kind: 'cancel
   return { sync: { upserts: {}, deletes: { pickups: [c.pickupId] }, seq: d.seq }, result: null }
 }
 
+export function planReportIssue(d: AppData, c: Extract<Command, { kind: 'reportIssue' }>) {
+  if (!d.devices.some((x) => x.id === c.deviceId)) throw new CommandError('This device no longer exists.')
+  if (!(c.category in ISSUE_CATEGORIES)) throw new CommandError('Choose what the problem is.')
+  const description = c.description.trim()
+  if (c.category === 'other' && !description) throw new CommandError('Describe the problem.')
+  const { id, seq } = nextId(d, PREFIX.issue, d.reportedIssues)
+  const issue: ReportedIssue = {
+    id, deviceId: c.deviceId, category: c.category, description: description || null,
+    reportedBy: c.userName, at: c.at, status: 'open', source: 'App',
+  }
+  return { sync: { upserts: { reportedIssues: [issue] }, seq }, result: issue }
+}
+
 export function planCommand(d: AppData, c: Command): Plan {
   switch (c.kind) {
     case 'startPickup': return planStartPickup(d, c)
     case 'finishPickup': return planFinishPickup(d, c)
     case 'cancelPickup': return planCancelPickup(d, c)
     case 'serviceOnly': return planServiceOnly(d, c)
+    case 'reportIssue': return planReportIssue(d, c)
   }
 }

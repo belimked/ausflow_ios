@@ -7,6 +7,7 @@ import { DueBadge, JobRow } from '@/components/items'
 import { Button, Card, Divider, EmptyState, Icon, IconBadge, Pill, Row, SectionTitle, toneColor } from '@/components/ui'
 import { addressOf, deviceTitle, dueState, fmtDate, fmtL, fmtM, nextService } from '@/lib/format'
 import { currentCoords, distanceM, quietCoords } from '@/lib/geo'
+import { issueLabel, openIssues } from '@/lib/issues'
 import { useIndex, useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
 import type { Coords } from '@/lib/types'
@@ -27,6 +28,8 @@ export default function DeviceScreen() {
   const company = dev?.companyId ? ix.companies.get(dev.companyId) : undefined
   const history = useMemo(() => (data?.pickups || []).filter((p) => p.deviceId === id && p.status === 'done')
     .sort((a, b) => (b.endAt || '').localeCompare(a.endAt || '')).slice(0, 5), [data, id])
+
+  const issues = useMemo(() => openIssues(data?.reportedIssues || [], id), [data, id])
 
   if (!dev) return <EmptyState icon="questionmark.circle" title="Device not found" message="It may have been removed in the web console." />
 
@@ -155,6 +158,24 @@ export default function DeviceScreen() {
           {dev.comments ? (<><Divider /><Row icon="note.text" tone="neutral" title="Comments" subtitle={dev.comments} /></>) : null}
           {company ? (<><Divider /><Row icon="building.2.fill" tone="neutral" title={company.name} subtitle="Responsible transport company" /></>) : null}
           {dev.lat != null ? (<><Divider /><Row icon="arrow.triangle.turn.up.right.diamond.fill" tone="success" title="Directions" subtitle="Open in Apple Maps" onPress={directions} /></>) : null}
+        </Card>
+
+        <SectionTitle title="Problems" />
+        <Card style={s.group}>
+          {issues.map((i, n) => (
+            <View key={i.id}>{n > 0 && <Divider />}
+              <Row icon="exclamationmark.bubble.fill" tone="warning" title={issueLabel(i.category)}
+                subtitle={[i.description, `${fmtDate(i.at)}${i.reportedBy ? ` · ${i.reportedBy}` : ''}`].filter(Boolean).join('\n')} />
+            </View>
+          ))}
+          {!issues.length && !canWrite ? <EmptyState icon="checkmark.seal" title="No open problems" /> : null}
+          {canWrite ? (
+            <>
+              {issues.length ? <Divider /> : null}
+              <Row testID="device-report-issue" icon="plus.bubble.fill" tone="neutral" title="Report a problem"
+                subtitle={issues.length ? undefined : 'No open problems'} onPress={() => router.push(`/issue/${dev.id}`)} />
+            </>
+          ) : null}
         </Card>
 
         <SectionTitle title="Recent pickups" />

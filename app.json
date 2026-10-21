@@ -30,9 +30,17 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "AusFlow uses the camera to scan the QR label on each grease trap.",
+          "cameraPermission": "AusFlow uses the camera to scan QR labels and to take photos for issue reports and pickups.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AusFlow lets you attach photos from your library to issue reports and pickups.",
+          "cameraPermission": "AusFlow uses the camera to scan QR labels and to take photos for issue reports and pickups.",
+          "microphonePermission": false
         }
       ],
       [

@@ -1,0 +1,31 @@
+appId: com.ausflow
+name: Open a device from the Devices tab and fill in the problem report form (without submitting)
+tags:
+  - auth
+  - data
+---
+# Submitting would leave a real open issue on UAT, so the flow stops before the last tap.
+- runFlow: subflows/sign-in.yaml
+- tapOn: "Devices"
+- tapOn: "Name, address, ref or QR code"
+- inputText: ${E2E_DEVICE}
+- tapOn: ".*${E2E_DEVICE}.*"
+- scrollUntilVisible:
+    element:
+      id: "device-report-issue"
+    direction: DOWN
+- tapOn:
+    id: "device-report-issue"
+- assertVisible: "What's the problem\\?"
+- tapOn:
+    id: "issue-other"
+# "Other" needs a description before it can be sent.
+- assertVisible:
+    id: "issue-submit"
+    enabled: false
+- tapOn:
+    id: "issue-description"
+- inputText: "E2E check, not a real problem"
+- assertVisible:
+    id: "issue-submit"
+    enabled: true
