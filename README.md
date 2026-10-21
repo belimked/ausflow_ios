@@ -31,6 +31,8 @@ Only unit tests run locally. Functional tests run in GitHub Actions (**Tests** w
 
 Flows whose secrets/variables are missing are skipped with a warning.
 
+The E2E accounts (`e2e_ops`, `e2e_ops2`, `e2e_view`) and test data (company `E2E Transport`, vehicles `E2E 001`/`E2E 002`, device `E2E-DEV-001`, facility `E2E Treatment Plant`, all ids `E2E-…`) exist only on UAT, seeded by `migrations/0015_uat_e2e_seed.sql` on the backend's `uat` branch. Their passwords are repository secrets; the workflow defaults the test-data variables to these values.
+
 ## Ad Hoc builds (GitHub Actions)
 
 Every push to `main` (or a manual run of **iOS Ad Hoc**) builds a signed IPA on a macOS runner and publishes the install page to GitHub Pages: <https://belimked.github.io/ausflow_ios/>. The IPA is also kept as a workflow artifact for 30 days.
