@@ -79,13 +79,17 @@ jobs:
         if: steps.name.outputs.exists != 'true'
         run: npx expo prebuild -p ios --clean
 
-      # Release bundles the JS into the app, so no Metro server is needed. Simulator builds need no signing.
+      # Release bundles the JS into the app, so no Metro server is needed. Signed "to run locally" (identity "-", no
+      # certificate or team): an unsigned app has no keychain entitlement, and SecureStore then fails at sign-in with
+      # "A required entitlement isn't present".
       - name: Build for simulator
         if: steps.name.outputs.exists != 'true'
         run: |
           xcodebuild -workspace ios/AusFlow.xcworkspace -scheme AusFlow -configuration Release \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO -quiet build
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= -quiet build
+          codesign -d --entitlements - "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator/AusFlow.app" 2>&1 | head -20 || true
           # tar keeps the executable bits, which a plain artifact upload would drop.
           tar -czf "$RUNNER_TEMP/AusFlow.app.tgz" -C "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator" AusFlow.app
 
