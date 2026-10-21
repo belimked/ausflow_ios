@@ -38,6 +38,8 @@ export interface Pickup {
   startAt?: string | null; endAt?: string | null
   startLat?: number | null; startLng?: number | null; endLat?: number | null; endLng?: number | null
   distance?: number | null; photos?: number | null; flags?: PickupFlag[] | null; note?: string | null
+  // Facility the driver plans to deliver to (optional).
+  plannedFacilityId?: string | null
   status: 'ongoing' | 'done'
 }
 

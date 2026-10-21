@@ -57,6 +57,10 @@ export default function Profile() {
           </View>
         </Card>
 
+        <Card style={[s.group, { marginTop: 12 }]}>
+          <Row testID="my-details" icon="person.text.rectangle" tone="neutral" title="My details" subtitle="Name, email and password" onPress={() => router.push('/details')} />
+        </Card>
+
         <SectionTitle title="Working as" />
         <Card style={s.group}>
           <Row icon="person.fill" title={driver?.name || 'No driver selected'} subtitle={driver?.phone ? `Driver · ${driver.phone}` : 'Driver'} onPress={() => router.push('/setup')} />

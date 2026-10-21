@@ -7,7 +7,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, token: string | null, body?: unknown, method?: 'DELETE'): Promise<T> {
+async function request<T>(path: string, token: string | null, body?: unknown, method?: 'DELETE' | 'PATCH'): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) headers.Authorization = `Bearer ${token}`
   let res: Response
@@ -58,3 +58,10 @@ export const uploadPhoto = (token: string, photo: { type: string; id: string; ki
   request<Photo>('/photos', token, photo)
 
 export const deletePhoto = (token: string, id: string) => request<{ ok: true }>(`/photos/${encodeURIComponent(id)}`, token, undefined, 'DELETE')
+
+// Old WasteID "My Details": the current password is always required.
+export const updateMe = (token: string, body: { currentPassword: string; displayName?: string; email?: string | null; newPassword?: string }) =>
+  request<User & { email?: string | null }>('/me', token, body, 'PATCH')
+
+// Emails a one-time reset link (opened in the browser) when the account has an email address; same answer otherwise.
+export const forgotPassword = (login: string) => request<{ ok: true }>('/password/forgot', null, { login })

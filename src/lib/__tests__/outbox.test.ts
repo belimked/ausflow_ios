@@ -166,6 +166,25 @@ describe('flush', () => {
     expect(s.sentIds[r.result.id]).toBe('RI0003')
   })
 
+  it('uploads photos taken when finishing an online pickup against that pickup', async () => {
+    const { s, deps } = setup(data({ pickups: [pickup({ status: 'ongoing', endAt: null })] }))
+    await submit(deps, { ...finish('PK0001'), photos: 1 }, { target: { type: 'pickup', kind: 'after' }, files: [{ dataUrl: 'p', name: 'a.jpg' }] })
+    await flush(deps)
+    expect(s.uploads).toEqual([['pickup', 'PK0001', 'p']])
+    expect(s.server.pickups[0]).toMatchObject({ status: 'done', photos: 1 })
+  })
+
+  it('puts photos of a pickup started and finished offline on its real id', async () => {
+    const { s, deps } = setup(data({ seq: { PK: 41 } }))
+    s.offline = true
+    const p = (await submit<Pickup>(deps, start())).result
+    await submit(deps, { ...finish(p.id), photos: 1 }, { target: { type: 'pickup', kind: 'after' }, files: [{ dataUrl: 'p', name: 'a.jpg' }] })
+    expect(s.queue.map((i) => i.entityId || i.cmd?.kind)).toEqual(['startPickup', 'finishPickup', p.id])
+    s.offline = false
+    expect(await flush(deps)).toEqual({ sent: 3, stopped: false })
+    expect(s.uploads).toEqual([['pickup', 'PK0042', 'p']])
+  })
+
   it('queues photos of a record created online and uploads them on flush', async () => {
     const { s, deps } = setup()
     await submit(deps, { kind: 'reportIssue', at, deviceId: 'DV0001', category: 'no_access', description: '', userName: 'Sam' },

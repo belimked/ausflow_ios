@@ -20,4 +20,8 @@ export const jpegDataUrl = (base64: string) => `data:image/jpeg;base64,${base64}
 export const fitsUpload = (dataUrl: string) => dataUrl.length <= MAX_PHOTO_CHARS
 
 // Server-side PHOTO_KINDS: which entity types accept photos, and with which kind.
-export const PHOTO_TARGET = { issue: { type: 'issue', kind: 'photo' }, device: { type: 'device', kind: 'device' } } as const
+export const PHOTO_TARGET = {
+  issue: { type: 'issue', kind: 'photo' }, device: { type: 'device', kind: 'device' },
+  // Taken when finishing a pickup (old WasteID consignment photo).
+  pickupAfter: { type: 'pickup', kind: 'after' },
+} as const

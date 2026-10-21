@@ -4,11 +4,14 @@ import { useEffect, useState } from 'react'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FlagPills } from '@/components/items'
+import { PhotoPicker } from '@/components/PhotoPicker'
 import { Button, Card, Divider, EmptyState, Icon, IconBadge, Pill, Row, SectionTitle } from '@/components/ui'
 import { LOCATION_FLAG_METRES } from '@/lib/config'
 import { deviceTitle, fmtDateTime, fmtDuration, fmtL, fmtM, fmtTime } from '@/lib/format'
 import { currentCoords } from '@/lib/geo'
+import { nearbyFacilities } from '@/lib/delivery'
 import { pickupDelivery } from '@/lib/load'
+import type { PreparedPhoto } from '@/lib/photo-file'
 import { isLocalId } from '@/lib/offline/queue'
 import { useTrailers } from '@/lib/trailers'
 import { useIndex, useStore } from '@/lib/store'
@@ -59,6 +62,11 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
   // DEMO: an attached trailer can be the target; the server still records the pickup on the truck.
   const trailers = useTrailers()
   const [into, setInto] = useState('')
+  const { data } = useStore()
+  const [planned, setPlanned] = useState<string | null>(pickup.plannedFacilityId ?? null)
+  const [photos, setPhotos] = useState<PreparedPhoto[]>([])
+  // Nearest facilities to the device the driver is standing at.
+  const destinations = nearbyFacilities(data?.facilities || [], dev?.lat != null && dev?.lng != null ? { lat: dev.lat, lng: dev.lng } : null).slice(0, 4)
   const wastes = wasteOptions(pickup.waste || dev?.waste)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -78,7 +86,7 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
       setBusy('Getting your location…')
       const coords = await currentCoords()
       setBusy('Saving…')
-      const done = await finishJob(pickup.id, { volume: v, note, coords, waste })
+      const done = await finishJob(pickup.id, { volume: v, note, coords, waste, plannedFacilityId: planned }, photos)
       if (into) trailers.assign(done.id, into)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       onDone(done)
@@ -172,6 +180,22 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
           })}
         </View>
 
+        {destinations.length ? (
+          <>
+            <SectionTitle title="Planned destination (optional)" />
+            <View style={s.wastes}>
+              {[{ id: null, name: 'Not decided' }, ...destinations.map((x) => x.facility)].map((f) => (
+                <Pressable key={f.id || 'none'} onPress={() => setPlanned(f.id)} style={[s.waste, planned === f.id && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                  <Text style={[s.wasteText, planned === f.id && { color: '#fff' }]}>{f.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        <SectionTitle title="Photos (optional)" />
+        <PhotoPicker photos={photos} onChange={setPhotos} />
+
         <SectionTitle title="Note (optional)" />
         <Card style={{ padding: 0 }}>
           <TextInput value={note} onChangeText={setNote} placeholder="Anything the office should know, e.g. access issues" placeholderTextColor={colors.faint}
@@ -245,6 +269,7 @@ function Details({ pickup }: { pickup: Pickup }) {
         <Row icon="truck.box.fill" tone="neutral" title={vehicle?.plate || '—'} subtitle="Vehicle" />
         <Divider />
         <Row icon="location.fill" tone="neutral" title={fmtM(pickup.distance)} subtitle="Distance from device" />
+        {pickup.plannedFacilityId ? (<><Divider /><Row icon="flag.fill" tone="neutral" title={ix.facilities.get(pickup.plannedFacilityId)?.name || pickup.plannedFacilityId} subtitle="Planned destination" /></>) : null}
         {delivery ? (<><Divider /><Row icon={delivery.state === 'delivered' ? 'building.columns.fill' : 'truck.box.fill'} tone={delivery.state === 'delivered' ? 'success' : 'warning'}
           title={delivery.state === 'delivered' ? `Delivered to ${ix.facilities.get(delivery.facilityId || '')?.name || 'a facility'}` : `On board ${ix.vehicles.get(delivery.vehicleId || '')?.plate || 'a vehicle'}`}
           subtitle={delivery.unload ? fmtDateTime(delivery.unload.at) : 'Not offloaded yet'} /></>) : null}

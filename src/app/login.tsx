@@ -1,9 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import * as SecureStore from 'expo-secure-store'
 import { useEffect, useState } from 'react'
-import { Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Icon } from '@/components/ui'
+import { forgotPassword } from '@/lib/api'
 import { ENV_LABEL } from '@/lib/config'
 import { useStore } from '@/lib/store'
 import { colors, gradient, radius, shadow } from '@/lib/theme'
@@ -38,6 +39,24 @@ export default function Login() {
     } finally {
       setBusy(false)
     }
+  }
+
+  // Old WasteID "Forgot Password?": the reset link is emailed and opened in the browser, then sign in here.
+  function forgot() {
+    Alert.prompt('Reset password', 'Enter your username or email address. A reset link will be sent to the email address on your account.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Send link', onPress: async (login?: string) => {
+          if (!login?.trim()) return
+          try {
+            await forgotPassword(login.trim())
+            Alert.alert('Check your email', 'If that account has an email address, a reset link is on its way. It works once, for one hour.')
+          } catch (e) {
+            Alert.alert('Could not send the link', (e as Error).message)
+          }
+        },
+      },
+    ], 'plain-text', username.trim())
   }
 
   const message = error || storeError
@@ -92,6 +111,9 @@ export default function Login() {
           ) : null}
 
           <Button testID="login-submit" title="Sign in" icon="arrow.right" onPress={submit} loading={busy} style={{ marginTop: 20 }} />
+          <Pressable testID="login-forgot" onPress={forgot} hitSlop={8} style={s.forgot}>
+            <Text style={s.forgotText}>Forgot password?</Text>
+          </Pressable>
         </View>
 
         <Text style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>Use the same account as the AusFlow web console.</Text>
@@ -113,6 +135,8 @@ const s = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700', color: colors.muted, marginTop: 14, marginBottom: 6 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, borderRadius: radius.md, backgroundColor: colors.bg, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border },
   input: { flex: 1, fontSize: 17, color: colors.text, height: '100%' },
+  forgot: { alignSelf: 'center', marginTop: 14 },
+  forgotText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
   remember: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
   rememberText: { fontSize: 15, color: colors.text },
   error: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 14, padding: 12, borderRadius: radius.sm, backgroundColor: colors.dangerSoft },

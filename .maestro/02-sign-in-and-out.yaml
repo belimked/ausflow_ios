@@ -15,6 +15,7 @@ tags:
 - tapOn: "Me"
 # Phase 5: nothing recorded offline, so the sync section is clear.
 - assertVisible: "Up to date"
+- assertVisible: "My details"
 # Phase 0: facilities are now read from /state.
 - assertVisible: ".*devices · .* facilities"
 - scrollUntilVisible:

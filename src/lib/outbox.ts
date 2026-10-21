@@ -33,6 +33,9 @@ const isTransient = (e: unknown) => e instanceof ApiError && (e.status === 0 || 
 
 const newKey = () => newLocalId().replace('local-', 'q-')
 
+// The record photos belong to: the one the command creates, or the pickup it finishes.
+const photoEntity = (cmd: Command, createdId?: string) => createdId || (cmd.kind === 'finishPickup' ? cmd.pickupId : undefined)
+
 // `sentResult` is set when the command was already planned against server data and may even have arrived there;
 // the phone's copy must not refuse it then (it may already contain the record).
 function enqueue<T>(deps: OutboxDeps, cmd: Command, photos?: { target: PhotoTarget; files: NewPhoto[] }, sentResult?: unknown) {
@@ -48,8 +51,9 @@ function enqueue<T>(deps: OutboxDeps, cmd: Command, photos?: { target: PhotoTarg
     result = localId && sentResult ? { ...(sentResult as object), id: localId } : sentResult
   }
   const items: QueueItem[] = [{ key: newKey(), cmd, localId }]
-  if (localId && photos?.files.length) {
-    items.push({ key: newKey(), entityId: localId, photos: { target: photos.target, files: photos.files.map(deps.savePhoto) } })
+  const entityId = photoEntity(cmd, localId)
+  if (entityId && photos?.files.length) {
+    items.push({ key: newKey(), entityId, photos: { target: photos.target, files: photos.files.map(deps.savePhoto) } })
   }
   deps.setQueue([...deps.getQueue(), ...items])
   return { result: result as T, queued: true }
@@ -78,7 +82,7 @@ export async function submit<T>(deps: OutboxDeps, cmd: Command, photos?: { targe
     }
     await deps.reload().catch(() => {})
   }
-  const id = createsRecord(cmd) ? (plan.result as { id: string }).id : undefined
+  const id = photoEntity(cmd, createsRecord(cmd) ? (plan.result as { id: string }).id : undefined)
   if (id && photos?.files.length) {
     deps.setQueue([...deps.getQueue(), { key: newKey(), entityId: id, photos: { target: photos.target, files: photos.files.map(deps.savePhoto) } }])
   }

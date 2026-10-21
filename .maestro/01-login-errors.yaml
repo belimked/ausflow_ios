@@ -11,6 +11,7 @@ tags:
     timeout: 30000
 - assertVisible: "UAT environment"
 - assertVisible: "Remember my username"
+- assertVisible: "Forgot password\\?"
 - tapOn:
     id: "login-submit"
 - assertVisible: "Enter your username and password."

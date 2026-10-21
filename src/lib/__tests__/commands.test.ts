@@ -83,6 +83,21 @@ describe('finishPickup waste type', () => {
   })
 })
 
+describe('finishPickup destination and photos', () => {
+  const running = pickup({ status: 'ongoing', volume: null, endAt: null, photos: 1 })
+  const finish = (extra: { plannedFacilityId?: string | null; photos?: number }) => planCommand(data({ pickups: [running] }),
+    { kind: 'finishPickup', at, pickupId: 'PK0001', volume: 100, note: '', coords: here, userName: 'Sam', ...extra }).result as Pickup
+
+  it('records the planned destination facility', () => {
+    expect(finish({ plannedFacilityId: 'FA0001' }).plannedFacilityId).toBe('FA0001')
+    expect(finish({}).plannedFacilityId).toBeNull()
+  })
+  it('adds the photos taken to the pickup count', () => {
+    expect(finish({ photos: 2 }).photos).toBe(3)
+    expect(finish({}).photos).toBe(1)
+  })
+})
+
 describe('serviceOnly', () => {
   const service = (d = data({ seq: { PK: 2, CL: 5 } }), coords: typeof here | null = here) =>
     planCommand(d, { kind: 'serviceOnly', at, deviceId: 'DV0001', profile, coords, note: ' lid cleaned ', userName: 'Sam' })

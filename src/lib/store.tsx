@@ -40,8 +40,9 @@ interface Store {
   // The real id of a record created offline, once it has been sent; the id itself otherwise.
   resolveId: (id: string) => string
   setProfile: (p: WorkProfile) => Promise<void>
+  updateDetails: (input: { currentPassword: string; displayName?: string; email?: string | null; newPassword?: string }) => Promise<void>
   startJob: (deviceId: string, coords: Coords | null) => Promise<Pickup>
-  finishJob: (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string }) => Promise<Pickup>
+  finishJob: (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string; plannedFacilityId?: string | null }, photos?: NewPhoto[]) => Promise<Pickup>
   cancelJob: (pickupId: string) => Promise<void>
   serviceOnly: (deviceId: string, input: { note: string; coords: Coords | null }) => Promise<Pickup>
   reportIssue: (deviceId: string, input: { category: IssueCategory; description: string }, photos: NewPhoto[]) => Promise<{ issue: ReportedIssue; queued: boolean }>
@@ -231,6 +232,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setProfileState(p)
   }, [])
 
+  // Old WasteID "My Details". The session keeps the new name; the token itself is unchanged.
+  const updateDetails = useCallback(async (input: { currentPassword: string; displayName?: string; email?: string | null; newPassword?: string }) => {
+    const s = sessionRef.current
+    if (!s) throw new Error('Not signed in')
+    const u = await api.updateMe(s.token, input)
+    const next = { ...s, user: { ...s.user, displayName: u.displayName } }
+    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(next))
+    sessionRef.current = next
+    setSession(next)
+  }, [])
+
   const submit = useCallback(async <T,>(cmd: Command, photos?: { target: PhotoTarget; files: NewPhoto[] }) => {
     const r = await submitCommand<T>(deps(), cmd, photos)
     if (queueRef.current.length) syncNow()
@@ -263,8 +275,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const startJob = useCallback(async (deviceId: string, coords: Coords | null) =>
     (await submit<Pickup>({ kind: 'startPickup', at: now(), deviceId, profile: needProfile(profile), coords })).result, [profile, submit])
 
-  const finishJob = useCallback(async (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string }) =>
-    (await submit<Pickup>({ kind: 'finishPickup', at: now(), pickupId, ...input, userName: userName() })).result, [submit])
+  const finishJob = useCallback(async (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string; plannedFacilityId?: string | null }, photos: NewPhoto[] = []) =>
+    (await submit<Pickup>({ kind: 'finishPickup', at: now(), pickupId, ...input, photos: photos.length, userName: userName() },
+      photos.length ? { target: PHOTO_TARGET.pickupAfter, files: photos } : undefined)).result, [submit])
 
   const cancelJob = useCallback(async (pickupId: string) => {
     await submit<null>({ kind: 'cancelPickup', at: now(), pickupId })
@@ -289,10 +302,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(() => ({
     ready, session, data, loading, error, loadedAt, profile, canWrite, online, pending: queue.length, syncing, problems,
-    signIn, signOut: clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile,
+    signIn, signOut: clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile, updateDetails,
     startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer,
   }), [ready, session, data, loading, error, loadedAt, profile, canWrite, online, queue, syncing, problems,
-    signIn, clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile,
+    signIn, clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile, updateDetails,
     startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

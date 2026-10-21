@@ -13,7 +13,7 @@ import { DEFAULT_WASTE } from './waste'
 // or later from the offline queue. `at` is captured when the driver acts, not when the command is sent.
 export type Command =
   | { kind: 'startPickup'; at: string; deviceId: string; profile: WorkProfile; coords: Coords | null }
-  | { kind: 'finishPickup'; at: string; pickupId: string; volume: number; note: string; coords: Coords | null; userName: string; waste?: string }
+  | { kind: 'finishPickup'; at: string; pickupId: string; volume: number; note: string; coords: Coords | null; userName: string; waste?: string; plannedFacilityId?: string | null; photos?: number }
   | { kind: 'cancelPickup'; at: string; pickupId: string }
   // Old WasteID "Service Device": the device was serviced but no waste was collected.
   | { kind: 'serviceOnly'; at: string; deviceId: string; profile: WorkProfile; coords: Coords | null; note: string; userName: string }
@@ -86,6 +86,7 @@ export function planFinishPickup(d: AppData, c: Extract<Command, { kind: 'finish
   if (dev?.capacity && c.volume > dev.capacity) flags.push('capacity')
   const done: Pickup = {
     ...p, volume: c.volume, note: c.note.trim(), endAt: c.at, waste: normName(c.waste) || p.waste,
+    plannedFacilityId: c.plannedFacilityId ?? p.plannedFacilityId ?? null, photos: (p.photos || 0) + (c.photos || 0),
     endLat: c.coords?.lat ?? null, endLng: c.coords?.lng ?? null, distance: distance ?? p.distance ?? null, flags, status: 'done',
   }
   const upserts: Record<string, unknown[]> = { pickups: [done] }
