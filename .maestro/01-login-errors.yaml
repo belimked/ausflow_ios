@@ -18,10 +18,11 @@ tags:
 - tapOn:
     id: "login-username"
 - inputText: "e2e-no-such-user"
-- tapOn:
-    id: "login-password"
+# "Next" moves focus to the password field. Tapping it instead can miss while the keyboard pushes the form up.
+- pressKey: Enter
 - inputText: "not-the-password"
 - hideKeyboard
+- waitForAnimationToEnd
 - tapOn:
     id: "login-submit"
 - extendedWaitUntil:

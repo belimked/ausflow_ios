@@ -10,10 +10,11 @@ appId: com.ausflow
 - tapOn:
     id: "login-username"
 - inputText: ${E2E_USERNAME}
-- tapOn:
-    id: "login-password"
+# "Next" moves focus to the password field. Tapping it instead can miss while the keyboard pushes the form up.
+- pressKey: Enter
 - inputText: ${E2E_PASSWORD}
 - hideKeyboard
+- waitForAnimationToEnd
 - tapOn:
     id: "login-submit"
 - extendedWaitUntil:

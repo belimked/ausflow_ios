@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import * as SecureStore from 'expo-secure-store'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ComponentRef } from 'react'
 import { Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Icon } from '@/components/ui'
@@ -21,6 +21,8 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   // Old WasteID "Remember Me": keep the username (never the password) for the next sign-in.
   const [remember, setRemember] = useState(true)
+  // "Next" on the username keyboard moves to the password field.
+  const passwordRef = useRef<ComponentRef<typeof TextInput>>(null)
 
   useEffect(() => {
     SecureStore.getItemAsync(REMEMBER_KEY).catch(() => null).then((u) => { if (u) setUsername((cur) => cur || u) })
@@ -83,6 +85,7 @@ export default function Login() {
             <TextInput
               testID="login-username" value={username} onChangeText={setUsername} placeholder="e.g. ops01" placeholderTextColor={colors.faint}
               autoCapitalize="none" autoCorrect={false} textContentType="username" returnKeyType="next" style={s.input}
+              submitBehavior="submit" onSubmitEditing={() => passwordRef.current?.focus()}
             />
           </View>
 
@@ -91,7 +94,7 @@ export default function Login() {
             <Icon name="lock" size={17} color={colors.faint} />
             <TextInput
               testID="login-password" value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={colors.faint}
-              secureTextEntry={!show} textContentType="password" returnKeyType="go" onSubmitEditing={submit} style={s.input}
+              ref={passwordRef} secureTextEntry={!show} textContentType="password" returnKeyType="go" onSubmitEditing={submit} style={s.input}
             />
             <Pressable hitSlop={10} onPress={() => setShow((v) => !v)}>
               <Icon name={show ? 'eye.slash' : 'eye'} size={17} color={colors.muted} />
