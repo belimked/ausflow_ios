@@ -20,7 +20,7 @@ function greeting() {
 export default function Today() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { data, session, profile, loading, error, refresh, canWrite } = useStore()
+  const { data, session, profile, loading, error, refresh, canWrite, online, pending, syncing } = useStore()
   const ix = useIndex()
   useNow()
 
@@ -68,7 +68,15 @@ export default function Today() {
             <Text style={s.hello}>{greeting()}{firstName ? ',' : ''}</Text>
             {firstName ? <Text style={s.name}>{firstName}</Text> : null}
           </View>
-          <View style={s.env}><Text style={s.envText}>{ENV_LABEL}</Text></View>
+          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            <View style={s.env}><Text style={s.envText}>{ENV_LABEL}</Text></View>
+            {!online || pending ? (
+              <Pressable testID="today-sync" onPress={() => router.navigate('/profile')} style={[s.env, s.sync]}>
+                <Icon name={online ? 'arrow.triangle.2.circlepath' : 'icloud.slash.fill'} size={11} color="#fff" />
+                <Text style={s.envText}>{!online ? 'OFFLINE' : syncing ? 'SENDING' : 'WAITING'}{pending ? ` · ${pending}` : ''}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         <Pressable onPress={() => router.push('/setup')} style={({ pressed }) => [s.workAs, pressed && { opacity: 0.85 }]}>
@@ -184,6 +192,7 @@ const s = StyleSheet.create({
   hello: { color: 'rgba(255,255,255,0.85)', fontSize: 16, fontWeight: '600' },
   name: { color: '#fff', fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
   env: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.2)', marginTop: 4 },
+  sync: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 0, backgroundColor: 'rgba(15,27,42,0.35)' },
   envText: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
   workAs: { marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.16)' },
   workIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },

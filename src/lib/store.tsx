@@ -1,9 +1,13 @@
 import * as SecureStore from 'expo-secure-store'
+import { useNetworkState } from 'expo-network'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as api from './api'
 import { CommandError, type Command } from './commands'
 import { vehicleLoads } from './load'
-import { createOutbox } from './outbox'
+import { localView, type QueueItem, type SyncProblem } from './offline/queue'
+import * as storage from './offline/storage'
+import { PHOTO_TARGET } from './photos'
+import { flush, submit as submitCommand, type NewPhoto, type OutboxDeps, type PhotoTarget } from './outbox'
 import type { AppData, Coords, IssueCategory, Pickup, ReportedIssue, Transfer, Unload, User, WorkProfile } from './types'
 
 export { findDeviceByCode } from './codes'
@@ -16,22 +20,31 @@ interface Session { token: string; user: User }
 interface Store {
   ready: boolean
   session: Session | null
+  // Server data plus everything still waiting to be sent.
   data: AppData | null
   loading: boolean
   error: string | null
   loadedAt: number | null
   profile: WorkProfile | null
   canWrite: boolean
+  online: boolean
+  pending: number
+  syncing: boolean
+  problems: SyncProblem[]
   signIn: (username: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   refresh: () => Promise<void>
+  syncNow: () => Promise<void>
+  retryProblem: (index: number) => void
+  discardProblem: (index: number) => void
+  // The real id of a record created offline, once it has been sent; the id itself otherwise.
+  resolveId: (id: string) => string
   setProfile: (p: WorkProfile) => Promise<void>
   startJob: (deviceId: string, coords: Coords | null) => Promise<Pickup>
   finishJob: (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string }) => Promise<Pickup>
   cancelJob: (pickupId: string) => Promise<void>
   serviceOnly: (deviceId: string, input: { note: string; coords: Coords | null }) => Promise<Pickup>
-  reportIssue: (deviceId: string, input: { category: IssueCategory; description: string }) => Promise<ReportedIssue>
-  uploadPhotos: (target: { type: string; kind: string }, id: string, photos: { dataUrl: string; name: string }[]) => Promise<{ uploaded: number; failed: number }>
+  reportIssue: (deviceId: string, input: { category: IssueCategory; description: string }, photos: NewPhoto[]) => Promise<{ issue: ReportedIssue; queued: boolean }>
   unload: (input: { facilityId: string; volume: number; waste: string; coords: Coords | null }) => Promise<Unload>
   transfer: (toVehicleId: string, coords: Coords | null) => Promise<Transfer>
 }
@@ -43,68 +56,174 @@ const now = () => new Date().toISOString()
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
-  const [data, setData] = useState<AppData | null>(null)
+  const [serverData, setServerData] = useState<AppData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loadedAt, setLoadedAt] = useState<number | null>(null)
   const [profile, setProfileState] = useState<WorkProfile | null>(null)
+  const [queue, setQueueState] = useState<QueueItem[]>([])
+  const [problems, setProblemsState] = useState<SyncProblem[]>([])
+  const [syncing, setSyncing] = useState(false)
+  const [idMap, setIdMap] = useState<Record<string, string>>({})
+  const network = useNetworkState()
+  const online = network.isConnected !== false
+
   const sessionRef = useRef<Session | null>(null)
+  const queueRef = useRef<QueueItem[]>([])
+  const problemsRef = useRef<SyncProblem[]>([])
+  const dataRef = useRef<AppData | null>(null)
+  const flushing = useRef(false)
   useEffect(() => { sessionRef.current = session }, [session])
+
+  const data = useMemo(() => (serverData ? localView(serverData, queue) : null), [serverData, queue])
+  useEffect(() => { dataRef.current = data }, [data])
+
+  // Queue and problems are kept per user on disk and survive sign-out, so offline work is never lost.
+  const setQueue = useCallback((items: QueueItem[]) => {
+    queueRef.current = items
+    setQueueState(items)
+    const s = sessionRef.current
+    if (s) storage.saveQueue(s.user.id, items)
+  }, [])
+
+  const setProblems = useCallback((items: SyncProblem[]) => {
+    problemsRef.current = items
+    setProblemsState(items)
+    const s = sessionRef.current
+    if (s) storage.saveProblems(s.user.id, items)
+  }, [])
 
   const clear = useCallback(async () => {
     await SecureStore.deleteItemAsync(SESSION_KEY)
+    sessionRef.current = null
+    queueRef.current = []
+    problemsRef.current = []
     setSession(null)
-    setData(null)
+    setServerData(null)
     setProfileState(null)
     setLoadedAt(null)
+    setQueueState([])
+    setProblemsState([])
   }, [])
 
-  const load = useCallback(async (s: Session) => {
+  // Throws the original error so callers can tell "offline" from other failures.
+  const fetchState = useCallback(async (s: Session) => {
     setLoading(true)
     try {
       const d = await api.fetchState(s.token)
-      setData(d)
-      setLoadedAt(Date.now())
+      setServerData(d)
+      const at = Date.now()
+      setLoadedAt(at)
       setError(null)
+      storage.saveSnapshot(s.user.id, d, at)
       return d
     } catch (e) {
       if (e instanceof api.ApiError && e.status === 401) {
         await clear()
-        setError('Your session has expired. Please sign in again.')
+        setError('Your session has expired. Please sign in again. Work waiting to be sent is kept on this phone.')
       } else {
         setError((e as Error).message)
       }
-      return null
+      throw e
     } finally {
       setLoading(false)
     }
   }, [clear])
+
+  const load = useCallback(async (s: Session) => fetchState(s).catch(() => null), [fetchState])
+
+  const deps = useCallback((): OutboxDeps => ({
+    fresh: async () => {
+      const s = sessionRef.current
+      if (!s) throw new api.ApiError('Not signed in', 401)
+      return fetchState(s)
+    },
+    send: async (payload) => {
+      const s = sessionRef.current
+      if (!s) throw new api.ApiError('Not signed in', 401)
+      return api.sync(s.token, payload)
+    },
+    reload: async () => { if (sessionRef.current) await fetchState(sessionRef.current) },
+    local: () => dataRef.current,
+    getQueue: () => queueRef.current,
+    setQueue,
+    addProblems: (ps) => setProblems([...problemsRef.current, ...ps]),
+    savePhoto: (p) => storage.savePhoto(p.dataUrl, p.name),
+    uploadPhoto: async (target, id, photo) => {
+      const s = sessionRef.current
+      if (!s) throw new api.ApiError('Not signed in', 401)
+      return api.uploadPhoto(s.token, { type: target.type, id, kind: target.kind, name: photo.name, dataUrl: await storage.readPhoto(photo) })
+    },
+    dropPhoto: storage.deletePhoto,
+    now,
+    onSent: (localId, realId) => setIdMap((m) => ({ ...m, [localId]: realId })),
+  }), [fetchState, setQueue, setProblems])
+
+  const syncNow = useCallback(async () => {
+    if (flushing.current || !sessionRef.current || !queueRef.current.length) return
+    flushing.current = true
+    setSyncing(true)
+    try {
+      await flush(deps())
+    } finally {
+      flushing.current = false
+      setSyncing(false)
+    }
+  }, [deps])
+
+  // Restore everything this user had on the phone, then go online.
+  const open = useCallback(async (s: Session) => {
+    const [p, snap, q, pr] = await Promise.all([
+      SecureStore.getItemAsync(profileKey(s.user.id)).catch(() => null),
+      storage.loadSnapshot(s.user.id),
+      storage.loadQueue(s.user.id),
+      storage.loadProblems(s.user.id),
+    ])
+    setProfileState(p ? JSON.parse(p) : null)
+    if (snap) {
+      setServerData(snap.data)
+      setLoadedAt(snap.loadedAt)
+    }
+    queueRef.current = q
+    problemsRef.current = pr
+    setQueueState(q)
+    setProblemsState(pr)
+    sessionRef.current = s
+    setSession(s)
+  }, [])
 
   useEffect(() => {
     ;(async () => {
       const raw = await SecureStore.getItemAsync(SESSION_KEY).catch(() => null)
       const s: Session | null = raw ? JSON.parse(raw) : null
       if (s) {
-        const p = await SecureStore.getItemAsync(profileKey(s.user.id)).catch(() => null)
-        setProfileState(p ? JSON.parse(p) : null)
-        setSession(s)
-        load(s)
+        await open(s)
+        load(s).then(() => syncNow())
       }
       setReady(true)
     })()
-  }, [load])
+  }, [open, load, syncNow])
+
+  // Send the queue as soon as the phone is back online.
+  useEffect(() => {
+    if (online && session) syncNow()
+  }, [online, session, syncNow])
 
   const signIn = useCallback(async (username: string, password: string) => {
     const s = await api.login(username.trim(), password)
     await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(s))
-    const p = await SecureStore.getItemAsync(profileKey(s.user.id)).catch(() => null)
-    setProfileState(p ? JSON.parse(p) : null)
     setError(null)
-    setSession(s)
+    await open(s)
     await load(s)
-  }, [load])
+    syncNow()
+  }, [open, load, syncNow])
 
-  const refresh = useCallback(async () => { if (sessionRef.current) await load(sessionRef.current) }, [load])
+  const refresh = useCallback(async () => {
+    const s = sessionRef.current
+    if (!s) return
+    await load(s)
+    await syncNow()
+  }, [load, syncNow])
 
   const setProfile = useCallback(async (p: WorkProfile) => {
     if (!sessionRef.current) return
@@ -112,80 +231,69 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setProfileState(p)
   }, [])
 
-  const fresh = useCallback(async () => {
-    const s = sessionRef.current
-    if (!s) throw new Error('Not signed in')
-    const d = await load(s)
-    if (!d) throw new Error('Could not load the latest data. Please try again.')
-    return d
-  }, [load])
+  const submit = useCallback(async <T,>(cmd: Command, photos?: { target: PhotoTarget; files: NewPhoto[] }) => {
+    const r = await submitCommand<T>(deps(), cmd, photos)
+    if (queueRef.current.length) syncNow()
+    return r
+  }, [deps, syncNow])
 
-  const send = useCallback(async (payload: api.SyncPayload) => {
-    const s = sessionRef.current
-    if (!s) throw new Error('Not signed in')
-    return api.sync(s.token, payload)
-  }, [])
+  const retryProblem = useCallback((index: number) => {
+    const p = problemsRef.current[index]
+    if (!p) return
+    setProblems(problemsRef.current.filter((_, i) => i !== index))
+    setQueue([...queueRef.current, p.item])
+    syncNow()
+  }, [setProblems, setQueue, syncNow])
 
-  // Built per call (not during render) so the outbox only reads the session ref while a write is running.
-  const submit = useCallback(<T,>(cmd: Command) => createOutbox({ fresh, send, reload: refresh }).submit<T>(cmd), [fresh, send, refresh])
+  const discardProblem = useCallback((index: number) => {
+    const p = problemsRef.current[index]
+    if (!p) return
+    for (const f of p.item.photos?.files || []) storage.deletePhoto(f)
+    setProblems(problemsRef.current.filter((_, i) => i !== index))
+  }, [setProblems])
 
-  const startJob = useCallback(async (deviceId: string, coords: Coords | null) => {
-    if (!profile) throw new CommandError('Choose your driver and vehicle first.')
-    return submit<Pickup>({ kind: 'startPickup', at: now(), deviceId, profile, coords })
-  }, [profile, submit])
+  const resolveId = useCallback((id: string) => idMap[id] || id, [idMap])
 
-  const finishJob = useCallback(async (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string }) => {
-    const userName = sessionRef.current?.user.displayName || ''
-    return submit<Pickup>({ kind: 'finishPickup', at: now(), pickupId, ...input, userName })
-  }, [submit])
+  const userName = () => sessionRef.current?.user.displayName || ''
+  const needProfile = (p: WorkProfile | null): WorkProfile => {
+    if (!p) throw new CommandError('Choose your driver and vehicle first.')
+    return p
+  }
+
+  const startJob = useCallback(async (deviceId: string, coords: Coords | null) =>
+    (await submit<Pickup>({ kind: 'startPickup', at: now(), deviceId, profile: needProfile(profile), coords })).result, [profile, submit])
+
+  const finishJob = useCallback(async (pickupId: string, input: { volume: number; note: string; coords: Coords | null; waste?: string }) =>
+    (await submit<Pickup>({ kind: 'finishPickup', at: now(), pickupId, ...input, userName: userName() })).result, [submit])
 
   const cancelJob = useCallback(async (pickupId: string) => {
     await submit<null>({ kind: 'cancelPickup', at: now(), pickupId })
   }, [submit])
 
-  const serviceOnly = useCallback(async (deviceId: string, input: { note: string; coords: Coords | null }) => {
-    if (!profile) throw new CommandError('Choose your driver and vehicle first.')
-    const userName = sessionRef.current?.user.displayName || ''
-    return submit<Pickup>({ kind: 'serviceOnly', at: now(), deviceId, profile, ...input, userName })
-  }, [profile, submit])
+  const serviceOnly = useCallback(async (deviceId: string, input: { note: string; coords: Coords | null }) =>
+    (await submit<Pickup>({ kind: 'serviceOnly', at: now(), deviceId, profile: needProfile(profile), ...input, userName: userName() })).result, [profile, submit])
 
-  const reportIssue = useCallback(async (deviceId: string, input: { category: IssueCategory; description: string }) => {
-    const userName = sessionRef.current?.user.displayName || ''
-    return submit<ReportedIssue>({ kind: 'reportIssue', at: now(), deviceId, ...input, userName })
+  const reportIssue = useCallback(async (deviceId: string, input: { category: IssueCategory; description: string }, photos: NewPhoto[]) => {
+    const r = await submit<ReportedIssue>({ kind: 'reportIssue', at: now(), deviceId, ...input, userName: userName() },
+      photos.length ? { target: PHOTO_TARGET.issue, files: photos } : undefined)
+    return { issue: r.result, queued: r.queued }
   }, [submit])
 
-  // Photos go to /photos, not /sync. One failed photo does not stop the others; the caller reports what failed.
-  const uploadPhotos = useCallback(async (target: { type: string; kind: string }, id: string, photos: { dataUrl: string; name: string }[]) => {
-    const s = sessionRef.current
-    if (!s) throw new Error('Not signed in')
-    let uploaded = 0
-    for (const p of photos) {
-      try {
-        await api.uploadPhoto(s.token, { type: target.type, id, kind: target.kind, name: p.name, dataUrl: p.dataUrl })
-        uploaded++
-      } catch {
-        // counted below
-      }
-    }
-    return { uploaded, failed: photos.length - uploaded }
-  }, [])
+  const unload = useCallback(async (input: { facilityId: string; volume: number; waste: string; coords: Coords | null }) =>
+    (await submit<Unload>({ kind: 'unload', at: now(), profile: needProfile(profile), ...input })).result, [profile, submit])
 
-  const unload = useCallback(async (input: { facilityId: string; volume: number; waste: string; coords: Coords | null }) => {
-    if (!profile) throw new CommandError('Choose your driver and vehicle first.')
-    return submit<Unload>({ kind: 'unload', at: now(), profile, ...input })
-  }, [profile, submit])
-
-  const transfer = useCallback(async (toVehicleId: string, coords: Coords | null) => {
-    if (!profile) throw new CommandError('Choose your driver and vehicle first.')
-    return submit<Transfer>({ kind: 'transfer', at: now(), profile, toVehicleId, coords })
-  }, [profile, submit])
+  const transfer = useCallback(async (toVehicleId: string, coords: Coords | null) =>
+    (await submit<Transfer>({ kind: 'transfer', at: now(), profile: needProfile(profile), toVehicleId, coords })).result, [profile, submit])
 
   const canWrite = !!session && ['admin', 'ops', 'authority'].includes(session.user.role)
 
   const value = useMemo<Store>(() => ({
-    ready, session, data, loading, error, loadedAt, profile, canWrite,
-    signIn, signOut: clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly, reportIssue, uploadPhotos, unload, transfer,
-  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, signIn, clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly, reportIssue, uploadPhotos, unload, transfer])
+    ready, session, data, loading, error, loadedAt, profile, canWrite, online, pending: queue.length, syncing, problems,
+    signIn, signOut: clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile,
+    startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer,
+  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, online, queue, syncing, problems,
+    signIn, clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile,
+    startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

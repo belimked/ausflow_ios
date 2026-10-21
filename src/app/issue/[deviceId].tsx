@@ -8,7 +8,6 @@ import { Button, Card, Divider, EmptyState, Icon, Row, SectionTitle } from '@/co
 import { deviceTitle } from '@/lib/format'
 import { ISSUE_CATEGORIES } from '@/lib/issues'
 import type { PreparedPhoto } from '@/lib/photo-file'
-import { PHOTO_TARGET } from '@/lib/photos'
 import { useIndex, useStore } from '@/lib/store'
 import { colors } from '@/lib/theme'
 import type { IssueCategory } from '@/lib/types'
@@ -18,7 +17,7 @@ export default function ReportIssue() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const ix = useIndex()
-  const { reportIssue, uploadPhotos } = useStore()
+  const { reportIssue } = useStore()
   const [category, setCategory] = useState<IssueCategory | null>(null)
   const [description, setDescription] = useState('')
   const [photos, setPhotos] = useState<PreparedPhoto[]>([])
@@ -33,16 +32,11 @@ export default function ReportIssue() {
     if (!category || !dev) return
     try {
       setBusy('Reporting…')
-      const issue = await reportIssue(dev.id, { category, description })
-      let failed = 0
-      if (photos.length) {
-        setBusy('Uploading photos…')
-        failed = (await uploadPhotos(PHOTO_TARGET.issue, issue.id, photos)).failed
-      }
+      const { queued } = await reportIssue(dev.id, { category, description }, photos)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-      Alert.alert('Problem reported', failed
-        ? `The office has been notified, but ${failed} of ${photos.length} photos could not be uploaded.`
-        : 'The office has been notified and will follow it up.')
+      Alert.alert('Problem reported', queued
+        ? 'You are offline. The report is saved on this phone and will be sent as soon as you are back online.'
+        : photos.length ? 'The office has been notified. Photos are uploading in the background.' : 'The office has been notified and will follow it up.')
       router.back()
     } catch (e) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)

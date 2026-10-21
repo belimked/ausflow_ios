@@ -13,6 +13,8 @@ tags:
 - tapOn: "Transfers"
 - assertVisible: "No transfers yet|.* L · .* → .*"
 - tapOn: "Me"
+# Phase 5: nothing recorded offline, so the sync section is clear.
+- assertVisible: "Up to date"
 # Phase 0: facilities are now read from /state.
 - assertVisible: ".*devices · .* facilities"
 - scrollUntilVisible:

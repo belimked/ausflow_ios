@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FlagPills } from '@/components/items'
@@ -9,6 +9,7 @@ import { LOCATION_FLAG_METRES } from '@/lib/config'
 import { deviceTitle, fmtDateTime, fmtDuration, fmtL, fmtM, fmtTime } from '@/lib/format'
 import { currentCoords } from '@/lib/geo'
 import { pickupDelivery } from '@/lib/load'
+import { isLocalId } from '@/lib/offline/queue'
 import { useTrailers } from '@/lib/trailers'
 import { useIndex, useStore } from '@/lib/store'
 import { colors } from '@/lib/theme'
@@ -19,9 +20,14 @@ import { useNow } from '@/lib/useNow'
 export default function JobScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const ix = useIndex()
-  const { profile, canWrite } = useStore()
+  const router = useRouter()
+  const { profile, canWrite, resolveId } = useStore()
   const [finished, setFinished] = useState<Pickup | null>(null)
   useNow(15000)
+
+  // A pickup recorded offline gets its real id once it is sent; follow it.
+  const real = resolveId(id)
+  useEffect(() => { if (real !== id && !finished) router.replace(`/job/${real}`) }, [real, id, finished, router])
 
   const p = finished || ix.pickups.get(id)
   if (!p) return <EmptyState icon="questionmark.circle" title="Pickup not found" message="It may have been cancelled." />
@@ -216,13 +222,14 @@ function Details({ pickup }: { pickup: Pickup }) {
   const delivery = data && !ongoing && (pickup.volume || 0) > 0 ? pickupDelivery(data, pickup) : null
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      <Stack.Screen options={{ title: pickup.id }} />
+      <Stack.Screen options={{ title: isLocalId(pickup.id) ? 'Waiting to sync' : pickup.id }} />
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <IconBadge name={ongoing ? 'truck.box.fill' : 'checkmark'} tone={ongoing ? 'primary' : 'success'} size={52} />
           <View style={{ flex: 1, gap: 4 }}>
             <Text style={s.liveTitle}>{title}</Text>
             <Pill label={ongoing ? 'In progress' : 'Completed'} tone={ongoing ? 'primary' : 'success'} />
+            {isLocalId(pickup.id) ? <Pill label="Not sent yet" tone="warning" icon="icloud.slash.fill" /> : null}
           </View>
           {!ongoing ? <Text style={s.bigVolume}>{fmtL(pickup.volume)}</Text> : null}
         </View>
