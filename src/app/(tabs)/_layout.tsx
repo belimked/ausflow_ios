@@ -9,7 +9,7 @@ export default function TabLayout() {
         <NativeTabs.Trigger.Icon sf={{ default: 'sun.max', selected: 'sun.max.fill' }} md="today" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="jobs">
-        <NativeTabs.Trigger.Label>Pickups</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>History</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'list.bullet.rectangle', selected: 'list.bullet.rectangle.fill' }} md="list" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="devices">

@@ -21,3 +21,8 @@ tags:
 - extendedWaitUntil:
     visible: "ON BOARD · ${E2E_PLATE}"
     timeout: 15000
+# Phase 3: the on-board card opens the vehicle's load list (old WasteID "Show").
+- tapOn: "ON BOARD · ${E2E_PLATE}"
+- extendedWaitUntil:
+    visible: "Pickups on board · .*"
+    timeout: 10000

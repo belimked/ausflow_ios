@@ -4,7 +4,7 @@
 >
 > 技术栈：Expo SDK 58 · React Native 0.88 · React 19 · Expo Router · TypeScript
 > 后端：AusFlow API（当前指向 **UAT** — `src/lib/config.ts`）
-> 最后核对：2026-10-21（含移植计划 Phase 0–2）
+> 最后核对：2026-10-21（含移植计划 Phase 0–3）
 
 ## 目录
 
@@ -83,7 +83,7 @@
 | 作业身份卡 | 显示当前司机·车牌·公司，点按进入 Setup | `index.tsx` |
 | 扫码入口 | 大按钮；未设身份则先去 Setup；只读账号禁用 | `index.tsx` |
 | 进行中清运卡 | 若本司机有进行中清运：显示设备、已用时（实时计时）、"完成清运"按钮 | `index.tsx` + `useNow` |
-| 车上余量 | 当前车辆余量 / 罐容量进度条，≥90% 标红 | `index.tsx` `OnBoard` |
+| 车上余量 | 当前车辆余量 / 罐容量进度条，≥90% 标红；点按进入车载清单；有余量时显示"卸料" | `index.tsx` `OnBoard` |
 | 统计三联 | 今日完成数、今日收集总量(L)、逾期设备数 | `index.tsx` `Stat` |
 | Due next | 即将到期的前 5 台设备（排除进行中） | `index.tsx` |
 | Completed today | 今日已完成清运列表 | `index.tsx` |
@@ -98,7 +98,7 @@
 | 手动输入 | 输入 QR / 标签 / 设备 ref（如 DV539135） | `scan.tsx` `ManualEntry` |
 | 权限处理 | 未授权时引导：允许相机 / 打开设置 / 改为手动输入 | `scan.tsx` |
 | 码解析 | 支持 `http://QR2id.net/?X@<code>` 取 `@` 后编码；匹配 ref / qr / 多标签 | `lib/codes.ts` `findDeviceByCode` |
-| 通用识别 | 同一扫码入口识别设备、车辆贴纸（→上车）、处理设施牌（提示卸料暂未开放）；从 Setup 进入时只接受车辆 | `lib/codes.ts` `resolveCode`、`scan.tsx` |
+| 通用识别 | 同一扫码入口识别设备（→设备页）、处理设施牌（→卸料）、车辆贴纸（→上车；自己车上有料时让司机选"换车"或"转料"）；从 Setup / 卸料 / 转料进入时只接受对应类型 | `lib/codes.ts` `resolveCode`、`lib/scan.ts` `scanAction`、`scan.tsx` |
 | 防重触发 | 扫中后锁定 1.8s，避免重复跳转 | `scan.tsx` `locked` |
 | 未找到反馈 | 错误触感 + Toast"未找到对应设备" | `scan.tsx` |
 | 成功跳转 | 命中设备 → 跳设备详情 | `scan.tsx` → `device/[id]` |
@@ -151,10 +151,22 @@
 | 照片 | 拍照或相册，最多 5 张；压到 1600px JPEG 0.82，超过 1.1MB 自动降级重试；以 `issue` 类型上传 | `components/PhotoPicker.tsx`、`lib/photo-file.ts`、`lib/photos.ts` |
 | 写入 | 写 `reportedIssues`（`RI…`，状态 open，来源 App）；照片上传失败不影响问题本身，会提示失败张数 | `store.tsx` `reportIssue` / `uploadPhotos` |
 
+## 8b. 卸料、转料、车载清单
+
+| 功能 | 说明 | 代码位置 |
+|---|---|---|
+| 卸料 (Offload) | 扫设施牌或选附近设施（按距离）→ 确认车辆（可换）→ 交付量（默认车上余量，可改；与余量相差 >10% 提醒）→ 废物类型（默认车上占比最大的）→ 写 `unloads`（`UL…`，记录实际 GPS）；成功页显示车上剩余 | `src/app/offload.tsx`、`commands.ts` `planUnload`、`lib/delivery.ts` |
+| 设施位置提醒 | 当前位置距设施 >200m 时提醒 | `offload.tsx` |
+| 转料 (Transfer All Waste) | 扫目标车贴纸或选本公司其他车 → 显示两车转后载量 → 整车余量全部转出，写 `transfers`（`TR…`）；超过目标车罐容量时警告并二次确认；只能转给本公司车辆 | `src/app/transfer.tsx`、`commands.ts` `planTransfer` |
+| 车载清单 (Show) | 当前装载周期内的收料和转入，起始时间；可去卸料 / 转料 | `src/app/vehicle.tsx`、`lib/load.ts` `currentCycle` |
+| 收料去向 | 清运详情显示"已送到某设施（时间）"或"仍在某车上" | `job/[id].tsx`、`lib/load.ts` `pickupDelivery` |
+| 规则 | 有进行中清运时不能卸料/转料 | `commands.ts` `readyToMoveLoad` |
+
 ## 9. Pickups（清运历史）
 
 | 功能 | 说明 | 代码位置 |
 |---|---|---|
+| 分类 | 收料 / 卸料 / 转料（Tab 名改为 History） | `src/app/(tabs)/jobs.tsx` `Kind` |
 | 范围切换 | 我的 / 我司 / 全部 | `src/app/(tabs)/jobs.tsx` `Scope` |
 | 按天分组 | 分组标题 + 每日台数与总量(L) | `jobs.tsx` |
 | 进行中分区 | 置顶单独一组 | `jobs.tsx` |
@@ -215,9 +227,6 @@
 相对老 WasteID（QR2id App）司机端，以下功能当前**未包含**：
 
 - 拖车/挂车（Trailer/Dog）绑定与多拖车
-- 车辆间转料（Transfer / Offload Waste）
-- 消费单（Consignment）模型与车载清单
-- 卸料/排放到处理设施（Deliver/Discharge，扫设施 QR 牌）
 - 收料时选目的处理设施（后端 `pickups` 无字段，待加列）
 - 清运照片（后端 `PHOTO_KINDS` 未允许 `pickup`，待后端放开）
 - 离线模式

@@ -4,7 +4,7 @@ import * as api from './api'
 import { CommandError, type Command } from './commands'
 import { vehicleLoads } from './load'
 import { createOutbox } from './outbox'
-import type { AppData, Coords, IssueCategory, Pickup, ReportedIssue, User, WorkProfile } from './types'
+import type { AppData, Coords, IssueCategory, Pickup, ReportedIssue, Transfer, Unload, User, WorkProfile } from './types'
 
 export { findDeviceByCode } from './codes'
 
@@ -32,6 +32,8 @@ interface Store {
   serviceOnly: (deviceId: string, input: { note: string; coords: Coords | null }) => Promise<Pickup>
   reportIssue: (deviceId: string, input: { category: IssueCategory; description: string }) => Promise<ReportedIssue>
   uploadPhotos: (target: { type: string; kind: string }, id: string, photos: { dataUrl: string; name: string }[]) => Promise<{ uploaded: number; failed: number }>
+  unload: (input: { facilityId: string; volume: number; waste: string; coords: Coords | null }) => Promise<Unload>
+  transfer: (toVehicleId: string, coords: Coords | null) => Promise<Transfer>
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -168,12 +170,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { uploaded, failed: photos.length - uploaded }
   }, [])
 
+  const unload = useCallback(async (input: { facilityId: string; volume: number; waste: string; coords: Coords | null }) => {
+    if (!profile) throw new CommandError('Choose your driver and vehicle first.')
+    return submit<Unload>({ kind: 'unload', at: now(), profile, ...input })
+  }, [profile, submit])
+
+  const transfer = useCallback(async (toVehicleId: string, coords: Coords | null) => {
+    if (!profile) throw new CommandError('Choose your driver and vehicle first.')
+    return submit<Transfer>({ kind: 'transfer', at: now(), profile, toVehicleId, coords })
+  }, [profile, submit])
+
   const canWrite = !!session && ['admin', 'ops', 'authority'].includes(session.user.role)
 
   const value = useMemo<Store>(() => ({
     ready, session, data, loading, error, loadedAt, profile, canWrite,
-    signIn, signOut: clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly, reportIssue, uploadPhotos,
-  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, signIn, clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly, reportIssue, uploadPhotos])
+    signIn, signOut: clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly, reportIssue, uploadPhotos, unload, transfer,
+  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, signIn, clear, refresh, setProfile, startJob, finishJob, cancelJob, serviceOnly, reportIssue, uploadPhotos, unload, transfer])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

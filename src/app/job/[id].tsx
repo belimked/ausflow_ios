@@ -8,6 +8,7 @@ import { Button, Card, Divider, EmptyState, Icon, IconBadge, Pill, Row, SectionT
 import { LOCATION_FLAG_METRES } from '@/lib/config'
 import { deviceTitle, fmtDateTime, fmtDuration, fmtL, fmtM, fmtTime } from '@/lib/format'
 import { currentCoords } from '@/lib/geo'
+import { pickupDelivery } from '@/lib/load'
 import { useIndex, useStore } from '@/lib/store'
 import { colors } from '@/lib/theme'
 import type { Pickup } from '@/lib/types'
@@ -190,7 +191,10 @@ function Success({ pickup }: { pickup: Pickup }) {
 function Details({ pickup }: { pickup: Pickup }) {
   const router = useRouter()
   const { dev, driver, vehicle, title } = useJobContext(pickup)
+  const { data } = useStore()
+  const ix = useIndex()
   const ongoing = pickup.status === 'ongoing'
+  const delivery = data && !ongoing && (pickup.volume || 0) > 0 ? pickupDelivery(data, pickup) : null
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <Stack.Screen options={{ title: pickup.id }} />
@@ -215,6 +219,9 @@ function Details({ pickup }: { pickup: Pickup }) {
         <Row icon="truck.box.fill" tone="neutral" title={vehicle?.plate || '—'} subtitle="Vehicle" />
         <Divider />
         <Row icon="location.fill" tone="neutral" title={fmtM(pickup.distance)} subtitle="Distance from device" />
+        {delivery ? (<><Divider /><Row icon={delivery.state === 'delivered' ? 'building.columns.fill' : 'truck.box.fill'} tone={delivery.state === 'delivered' ? 'success' : 'warning'}
+          title={delivery.state === 'delivered' ? `Delivered to ${ix.facilities.get(delivery.facilityId || '')?.name || 'a facility'}` : `On board ${ix.vehicles.get(delivery.vehicleId || '')?.plate || 'a vehicle'}`}
+          subtitle={delivery.unload ? fmtDateTime(delivery.unload.at) : 'Not offloaded yet'} /></>) : null}
         {pickup.waste ? (<><Divider /><Row icon="drop.fill" tone="neutral" title={[pickup.waste, wasteCodeOf(pickup.waste)].filter(Boolean).join(' · ')} subtitle="Waste type" /></>) : null}
         {pickup.note ? (<><Divider /><Row icon="note.text" tone="neutral" title="Note" subtitle={pickup.note} /></>) : null}
         {dev ? (<><Divider /><Row icon="drop.circle.fill" title={`Device ${dev.ref}`} subtitle="View device" onPress={() => router.push(`/device/${dev.id}`)} /></>) : null}

@@ -113,7 +113,10 @@ export default function Today() {
           </Pressable>
         )}
 
-        {vehicle ? <OnBoard litres={Math.max(0, ix.loads.get(vehicle.id) || 0)} tank={vehicle.tank || 0} plate={vehicle.plate} /> : null}
+        {vehicle ? (
+          <OnBoard litres={Math.max(0, ix.loads.get(vehicle.id) || 0)} tank={vehicle.tank || 0} plate={vehicle.plate}
+            onPress={() => router.push('/vehicle')} onOffload={canWrite ? () => router.push('/offload') : undefined} />
+        ) : null}
 
         <View style={s.stats}>
           <Stat label="Pickups today" value={String(view?.doneToday.length || 0)} icon="checkmark.circle.fill" tone="success" />
@@ -142,11 +145,11 @@ export default function Today() {
 }
 
 // Waste on board the selected vehicle; red from 90 % of the tank, like the web console's load gauge.
-function OnBoard({ litres, tank, plate }: { litres: number; tank: number; plate: string }) {
+function OnBoard({ litres, tank, plate, onPress, onOffload }: { litres: number; tank: number; plate: string; onPress: () => void; onOffload?: () => void }) {
   const pct = tank ? Math.min(1, litres / tank) : 0
   const full = tank > 0 && litres / tank >= 0.9
   return (
-    <Card style={s.load}>
+    <Card style={s.load} onPress={onPress}>
       <View style={s.loadHead}>
         <Text style={s.loadLabel}>ON BOARD · {plate}</Text>
         <Text style={[s.loadValue, full && { color: colors.danger }]}>
@@ -157,6 +160,9 @@ function OnBoard({ litres, tank, plate }: { litres: number; tank: number; plate:
         <View style={s.bar}>
           <View style={[s.barFill, { width: `${pct * 100}%`, backgroundColor: full ? colors.danger : colors.primaryBright }]} />
         </View>
+      ) : null}
+      {onOffload && litres > 0 ? (
+        <Button testID="today-offload" title="Offload waste" kind="success" icon="arrow.down.to.line" size="md" onPress={onOffload} style={{ marginTop: 12 }} />
       ) : null}
     </Card>
   )

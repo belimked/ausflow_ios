@@ -2,22 +2,32 @@ import { CameraView, useCameraPermissions } from 'expo-camera'
 import * as Haptics from 'expo-haptics'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useRef, useState } from 'react'
-import { KeyboardAvoidingView, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, KeyboardAvoidingView, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Icon } from '@/components/ui'
-import { codeOf, resolveCode } from '@/lib/codes'
-import { useStore } from '@/lib/store'
+import { resolveCode } from '@/lib/codes'
+import { fmtL } from '@/lib/format'
+import { scanAction, type ScanMode } from '@/lib/scan'
+import { useIndex, useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
 
 const FRAME = 260
 
+const HINT: Record<ScanMode, string> = {
+  any: 'Scan the QR label on a grease trap, a vehicle sticker or a facility plate',
+  vehicle: 'Point the camera at the QR sticker on the vehicle',
+  facility: 'Point the camera at the QR plate at the facility',
+  transfer: 'Scan the sticker of the vehicle receiving the waste',
+}
+const TITLE: Record<ScanMode, string> = { any: 'Scan QR code', vehicle: 'Scan vehicle', facility: 'Scan facility', transfer: 'Transfer to…' }
+
 export default function Scan() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  // mode=vehicle comes from the driver & vehicle screen and only accepts vehicle stickers.
-  const { mode } = useLocalSearchParams<{ mode?: 'vehicle' }>()
-  const vehicleOnly = mode === 'vehicle'
-  const { data } = useStore()
+  const params = useLocalSearchParams<{ mode?: ScanMode }>()
+  const mode: ScanMode = params.mode && params.mode in HINT ? params.mode : 'any'
+  const { data, profile } = useStore()
+  const ix = useIndex()
   const [permission, requestPermission] = useCameraPermissions()
   const [torch, setTorch] = useState(false)
   const [manual, setManual] = useState(false)
@@ -28,22 +38,29 @@ export default function Scan() {
   function resolve(raw: string) {
     if (locked.current || !data) return
     locked.current = true
-    const hit = resolveCode(data, raw)
-    if (hit?.kind === 'vehicle') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-      router.replace({ pathname: '/setup', params: { vehicleId: hit.item.id } })
+    const onBoard = profile ? ix.loads.get(profile.vehicleId) || 0 : 0
+    const action = scanAction(resolveCode(data, raw), raw, mode, { vehicleId: profile?.vehicleId, onBoard })
+    if ('problem' in action) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      setProblem(action.problem)
+      setTimeout(() => { locked.current = false }, 1800)
       return
     }
-    if (hit?.kind === 'device' && !vehicleOnly) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-      router.replace(`/device/${hit.item.id}`)
-      return
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    switch (action.go) {
+      case 'device': return router.replace(`/device/${action.id}`)
+      case 'join': return router.replace({ pathname: '/setup', params: { vehicleId: action.vehicleId } })
+      case 'offload': return router.replace({ pathname: '/offload', params: { facilityId: action.facilityId } })
+      case 'transfer': return router.replace({ pathname: '/transfer', params: { toVehicleId: action.vehicleId } })
+      case 'joinOrTransfer': {
+        const plate = ix.vehicles.get(action.vehicleId)?.plate || 'this vehicle'
+        return Alert.alert(plate, `You have ${fmtL(onBoard)} on board. Change to ${plate}, or transfer your waste into it?`, [
+          { text: 'Cancel', style: 'cancel', onPress: () => { locked.current = false } },
+          { text: 'Change vehicle', onPress: () => router.replace({ pathname: '/setup', params: { vehicleId: action.vehicleId } }) },
+          { text: 'Transfer waste', onPress: () => router.replace({ pathname: '/transfer', params: { toVehicleId: action.vehicleId } }) },
+        ])
+      }
     }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-    if (vehicleOnly && hit) setProblem('That is not a vehicle sticker.')
-    else if (hit?.kind === 'facility') setProblem(`${hit.item.name} is a treatment facility. Offloading is not available in this version yet.`)
-    else setProblem(`No ${vehicleOnly ? 'vehicle' : 'device or vehicle'} found for “${codeOf(raw) || raw}”`)
-    setTimeout(() => { locked.current = false }, 1800)
   }
 
   const close = (
@@ -65,7 +82,7 @@ export default function Scan() {
           title={permission.canAskAgain ? 'Allow camera' : 'Open Settings'} icon="camera"
           onPress={() => (permission.canAskAgain ? requestPermission() : Linking.openSettings())} style={{ marginTop: 24, alignSelf: 'stretch' }} />
         <Button title="Enter code instead" kind="ghost" onPress={() => setManual(true)} style={{ alignSelf: 'stretch' }} />
-        {manual && <ManualEntry code={code} setCode={setCode} onSubmit={() => resolve(code)} error={problem} vehicleOnly={vehicleOnly} />}
+        {manual && <ManualEntry code={code} setCode={setCode} onSubmit={() => resolve(code)} error={problem} mode={mode} />}
       </View>
     )
   }
@@ -92,7 +109,7 @@ export default function Scan() {
           <View style={s.mask} />
         </View>
         <View style={[s.mask, { alignItems: 'center', paddingTop: 28, paddingHorizontal: 32 }]}>
-          <Text style={s.hint}>{vehicleOnly ? 'Point the camera at the QR sticker on the vehicle' : 'Scan the QR label on a grease trap or a vehicle sticker'}</Text>
+          <Text style={s.hint}>{HINT[mode]}</Text>
           {problem && !manual ? (
             <View style={s.toast}>
               <Icon name="exclamationmark.triangle.fill" size={16} color="#FFB224" />
@@ -104,7 +121,7 @@ export default function Scan() {
 
       <View style={[s.topBar, { top: insets.top + 8 }]}>
         {close}
-        <Text style={s.topTitle}>{vehicleOnly ? 'Scan vehicle' : 'Scan QR code'}</Text>
+        <Text style={s.topTitle}>{TITLE[mode]}</Text>
         <Pressable onPress={() => setTorch((t) => !t)} hitSlop={10} style={[s.round, torch && { backgroundColor: '#fff' }]}>
           <Icon name={torch ? 'flashlight.on.fill' : 'flashlight.off.fill'} size={18} color={torch ? colors.text : '#fff'} />
         </Pressable>
@@ -112,7 +129,7 @@ export default function Scan() {
 
       <View style={[s.bottom, { paddingBottom: insets.bottom + 16 }]}>
         {manual ? (
-          <ManualEntry code={code} setCode={setCode} onSubmit={() => resolve(code)} error={problem} vehicleOnly={vehicleOnly} onCancel={() => setManual(false)} />
+          <ManualEntry code={code} setCode={setCode} onSubmit={() => resolve(code)} error={problem} mode={mode} onCancel={() => setManual(false)} />
         ) : (
           <Pressable testID="scan-manual" onPress={() => setManual(true)} style={s.manualBtn}>
             <Icon name="keyboard" size={18} color="#fff" />
@@ -124,14 +141,21 @@ export default function Scan() {
   )
 }
 
-function ManualEntry({ code, setCode, onSubmit, error, vehicleOnly, onCancel }: {
-  code: string; setCode: (v: string) => void; onSubmit: () => void; error: string | null; vehicleOnly: boolean; onCancel?: () => void
+const MANUAL: Record<ScanMode, string> = {
+  any: 'A device QR code, tag ID or ref (e.g. DV539135), a vehicle sticker code (VH…) or a facility plate code (FA…).',
+  vehicle: 'The code printed under the vehicle QR sticker (VH…).',
+  facility: 'The code printed under the facility QR plate (FA…).',
+  transfer: 'The sticker code of the receiving vehicle (VH…).',
+}
+
+function ManualEntry({ code, setCode, onSubmit, error, mode, onCancel }: {
+  code: string; setCode: (v: string) => void; onSubmit: () => void; error: string | null; mode: ScanMode; onCancel?: () => void
 }) {
   return (
     <KeyboardAvoidingView behavior="padding" style={s.sheet}>
-      <Text style={s.sheetTitle}>{vehicleOnly ? 'Enter vehicle code' : 'Enter code'}</Text>
+      <Text style={s.sheetTitle}>Enter code</Text>
       <Text style={s.sheetSub}>
-        {vehicleOnly ? 'The code printed under the vehicle QR sticker (VH…).' : 'A device QR code, tag ID or ref (e.g. DV539135), or a vehicle sticker code (VH…).'}
+        {MANUAL[mode]}
       </Text>
       <TextInput
         testID="scan-code" value={code} onChangeText={setCode} autoFocus autoCapitalize="characters" autoCorrect={false}

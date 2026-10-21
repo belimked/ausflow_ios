@@ -4,7 +4,8 @@ import { normName } from './format'
 import { distanceM } from './geo-math'
 import { PREFIX, nextId } from './ids'
 import { ISSUE_CATEGORIES } from './issues'
-import type { AppData, ChangeLog, Coords, Device, IssueCategory, Pickup, PickupFlag, ReportedIssue, WorkProfile } from './types'
+import { vehicleLoads } from './load'
+import type { AppData, ChangeLog, Coords, Device, IssueCategory, Pickup, PickupFlag, ReportedIssue, Transfer, Unload, WorkProfile } from './types'
 import { DEFAULT_WASTE } from './waste'
 
 // Every write is a command: plain data describing what the driver did and when. planCommand() turns it into a
@@ -18,6 +19,10 @@ export type Command =
   | { kind: 'serviceOnly'; at: string; deviceId: string; profile: WorkProfile; coords: Coords | null; note: string; userName: string }
   // Old WasteID "Report Issue / Service Problem", reviewed and resolved in the web console.
   | { kind: 'reportIssue'; at: string; deviceId: string; category: IssueCategory; description: string; userName: string }
+  // Old WasteID "Offload / Deliver Waste" at a treatment facility.
+  | { kind: 'unload'; at: string; profile: WorkProfile; facilityId: string; volume: number; waste: string; coords: Coords | null }
+  // Old WasteID "Transfer All Waste" from the driver's vehicle to another vehicle of the company.
+  | { kind: 'transfer'; at: string; profile: WorkProfile; toVehicleId: string; coords: Coords | null }
 
 // A rule the current server state does not allow; the message is shown to the driver as is.
 export class CommandError extends Error {}
@@ -129,6 +134,45 @@ export function planReportIssue(d: AppData, c: Extract<Command, { kind: 'reportI
   return { sync: { upserts: { reportedIssues: [issue] }, seq }, result: issue }
 }
 
+function readyToMoveLoad(d: AppData, profile: WorkProfile) {
+  const vehicle = d.vehicles.find((v) => v.id === profile.vehicleId)
+  if (!vehicle) throw new CommandError('Your vehicle no longer exists. Choose your vehicle again.')
+  if (d.pickups.some((p) => p.status === 'ongoing' && p.driverId === profile.driverId)) {
+    throw new CommandError('Finish the pickup in progress first.')
+  }
+  return vehicle
+}
+
+export function planUnload(d: AppData, c: Extract<Command, { kind: 'unload' }>) {
+  const vehicle = readyToMoveLoad(d, c.profile)
+  const facility = d.facilities.find((f) => f.id === c.facilityId)
+  if (!facility || facility.status !== 'active') throw new CommandError('This facility is not accepting deliveries.')
+  if (!(c.volume > 0)) throw new CommandError('Enter the volume delivered.')
+  const { id, seq } = nextId(d, PREFIX.unload, d.unloads)
+  const unload: Unload = {
+    id, companyId: c.profile.companyId, driverId: c.profile.driverId, vehicleId: vehicle.id, facilityId: facility.id,
+    waste: normName(c.waste) || null, volume: c.volume, at: c.at, lat: c.coords?.lat ?? null, lng: c.coords?.lng ?? null,
+  }
+  return { sync: { upserts: { unloads: [unload] }, seq }, result: unload }
+}
+
+export function planTransfer(d: AppData, c: Extract<Command, { kind: 'transfer' }>) {
+  const from = readyToMoveLoad(d, c.profile)
+  const to = d.vehicles.find((v) => v.id === c.toVehicleId)
+  if (!to || to.status !== 'active') throw new CommandError('That vehicle is not active.')
+  if (to.id === from.id) throw new CommandError('Choose a different vehicle to transfer to.')
+  if (to.companyId !== c.profile.companyId) throw new CommandError('You can only transfer to a vehicle of your company.')
+  // The whole load moves (old "Transfer All Waste"); the console's trace relies on that.
+  const volume = vehicleLoads(d).get(from.id) || 0
+  if (volume <= 0) throw new CommandError('There is no waste on board to transfer.')
+  const { id, seq } = nextId(d, PREFIX.transfer, d.transfers)
+  const transfer: Transfer = {
+    id, companyId: c.profile.companyId, driverId: c.profile.driverId, fromVehicleId: from.id, toVehicleId: to.id,
+    volume, at: c.at, lat: c.coords?.lat ?? null, lng: c.coords?.lng ?? null,
+  }
+  return { sync: { upserts: { transfers: [transfer] }, seq }, result: transfer }
+}
+
 export function planCommand(d: AppData, c: Command): Plan {
   switch (c.kind) {
     case 'startPickup': return planStartPickup(d, c)
@@ -136,5 +180,7 @@ export function planCommand(d: AppData, c: Command): Plan {
     case 'cancelPickup': return planCancelPickup(d, c)
     case 'serviceOnly': return planServiceOnly(d, c)
     case 'reportIssue': return planReportIssue(d, c)
+    case 'unload': return planUnload(d, c)
+    case 'transfer': return planTransfer(d, c)
   }
 }
