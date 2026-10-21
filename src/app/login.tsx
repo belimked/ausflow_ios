@@ -1,11 +1,14 @@
 import { LinearGradient } from 'expo-linear-gradient'
-import { useState } from 'react'
-import { Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import * as SecureStore from 'expo-secure-store'
+import { useEffect, useState } from 'react'
+import { Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Icon } from '@/components/ui'
 import { ENV_LABEL } from '@/lib/config'
 import { useStore } from '@/lib/store'
 import { colors, gradient, radius, shadow } from '@/lib/theme'
+
+const REMEMBER_KEY = 'remember_username'
 
 export default function Login() {
   const { signIn, error: storeError } = useStore()
@@ -15,6 +18,12 @@ export default function Login() {
   const [show, setShow] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Old WasteID "Remember Me": keep the username (never the password) for the next sign-in.
+  const [remember, setRemember] = useState(true)
+
+  useEffect(() => {
+    SecureStore.getItemAsync(REMEMBER_KEY).catch(() => null).then((u) => { if (u) setUsername((cur) => cur || u) })
+  }, [])
 
   async function submit() {
     if (!username.trim() || !password) return setError('Enter your username and password.')
@@ -22,6 +31,8 @@ export default function Login() {
     setError(null)
     try {
       await signIn(username, password)
+      if (remember) await SecureStore.setItemAsync(REMEMBER_KEY, username.trim()).catch(() => {})
+      else await SecureStore.deleteItemAsync(REMEMBER_KEY).catch(() => {})
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -68,6 +79,11 @@ export default function Login() {
             </Pressable>
           </View>
 
+          <View style={s.remember}>
+            <Text style={s.rememberText}>Remember my username</Text>
+            <Switch testID="login-remember" value={remember} onValueChange={setRemember} trackColor={{ true: colors.primary }} />
+          </View>
+
           {message ? (
             <View style={s.error}>
               <Icon name="exclamationmark.circle.fill" size={16} color={colors.danger} />
@@ -97,6 +113,8 @@ const s = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700', color: colors.muted, marginTop: 14, marginBottom: 6 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, borderRadius: radius.md, backgroundColor: colors.bg, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border },
   input: { flex: 1, fontSize: 17, color: colors.text, height: '100%' },
+  remember: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
+  rememberText: { fontSize: 15, color: colors.text },
   error: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 14, padding: 12, borderRadius: radius.sm, backgroundColor: colors.dangerSoft },
   errorText: { flex: 1, color: colors.danger, fontSize: 14, fontWeight: '600' },
   footer: { textAlign: 'center', color: colors.faint, fontSize: 13, marginTop: 'auto', paddingTop: 24 },

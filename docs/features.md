@@ -4,7 +4,7 @@
 >
 > 技术栈：Expo SDK 58 · React Native 0.88 · React 19 · Expo Router · TypeScript
 > 后端：AusFlow API（当前指向 **UAT** — `src/lib/config.ts`）
-> 最后核对：2026-10-21（含移植计划 Phase 0–5）
+> 最后核对：2026-10-21（含移植计划 Phase 0–5、6/7 的客户端部分）
 
 ## 目录
 
@@ -43,12 +43,13 @@
 |---|---|---|
 | 账号密码登录 | **用户名** + 密码（与 AusFlow web 后台同一账号） | `src/app/login.tsx` |
 | 显示/隐藏密码 | 眼睛图标切换 | `login.tsx` |
+| 记住用户名 | 开关（默认开）记住用户名，不记密码；存 SecureStore | `login.tsx` |
 | 错误提示 | 空值校验、服务端错误、网络不可达均有文案 | `login.tsx` / `api.ts` |
 | 会话持久化 | token + user 存入 `expo-secure-store`，重启自动恢复并拉数据 | `store.tsx` |
 | 自动登出 | 任意请求返回 401 → 清会话 + 提示"会话已过期，请重新登录" | `store.tsx` `load()` |
 | 手动登出 | Me 页，二次确认 | `profile.tsx` |
 
-> ❌ 不含：记住我、忘记密码、App 内改密码/改资料（老 WasteID 有，这些现由 web 后台承担）。
+> ❌ 不含：忘记密码、App 内改密码/改资料、连续输错锁定（需后端新接口，见移植计划 Phase 6）。
 
 ## 2. 角色与权限
 
@@ -191,6 +192,7 @@
 | 全文搜索 | ref / aka / qr / 标签 / 位置描述 / 位置名 / 地址 | `src/app/(tabs)/devices.tsx` |
 | 我司筛选 | 仅本公司设备（有身份时默认开） | `devices.tsx` `mineOnly` |
 | 逾期筛选 | 仅逾期设备 | `devices.tsx` `overdueOnly` |
+| 到期筛选 | 7 天 / 30 天内到期（含已逾期），对应老 Service List 的 Service Due Before | `devices.tsx` `dueDays`、`format.ts` `dueWithin` |
 | 附近排序 | 取当前定位，按距离升序；无定位时提示 | `devices.tsx` `toggleNearby` |
 | 默认排序 | 无"附近"时按下次服务日期升序 | `devices.tsx` |
 | 快捷扫码 | 顶部扫码按钮（可写时） | `devices.tsx` |
