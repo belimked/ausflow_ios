@@ -21,10 +21,8 @@ tags:
 # "Next" moves focus to the password field. Tapping it instead can miss while the keyboard pushes the form up.
 - pressKey: Enter
 - inputText: "not-the-password"
-- hideKeyboard
-- waitForAnimationToEnd
-- tapOn:
-    id: "login-submit"
+# "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
+- pressKey: Enter
 - extendedWaitUntil:
     visible: "Invalid username or password"
     timeout: 30000
