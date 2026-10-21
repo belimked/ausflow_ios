@@ -1,0 +1,21 @@
+appId: com.ausflow
+name: Attach a demo trailer (local only)
+tags:
+  - auth
+  - data
+---
+# Trailers are a phone-only demo (FEATURES.trailers = 'mock'); nothing is written to UAT.
+- runFlow: subflows/sign-in.yaml
+- runFlow: subflows/join-by-plate.yaml
+- scrollUntilVisible:
+    element:
+      id: "trailer-attach"
+    direction: DOWN
+- assertVisible: "TRAILERS"
+- assertVisible: "DEMO"
+- tapOn:
+    id: "trailer-attach"
+- tapOn: "TL \\d{3} · .*"
+- extendedWaitUntil:
+    visible: "0 L of .*"
+    timeout: 5000

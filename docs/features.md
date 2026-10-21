@@ -4,7 +4,7 @@
 >
 > 技术栈：Expo SDK 58 · React Native 0.88 · React 19 · Expo Router · TypeScript
 > 后端：AusFlow API（当前指向 **UAT** — `src/lib/config.ts`）
-> 最后核对：2026-10-21（含移植计划 Phase 0–3）
+> 最后核对：2026-10-21（含移植计划 Phase 0–4）
 
 ## 目录
 
@@ -162,6 +162,17 @@
 | 收料去向 | 清运详情显示"已送到某设施（时间）"或"仍在某车上" | `job/[id].tsx`、`lib/load.ts` `pickupDelivery` |
 | 规则 | 有进行中清运时不能卸料/转料 | `commands.ts` `readyToMoveLoad` |
 
+## 8c. 拖车 / Dog（DEMO，仅本地）
+
+> 后端和 web 都没有拖车概念。按 2026-10-21 的决定先在 App 内做演示，开关 `FEATURES.trailers`（`src/lib/config.ts`），`'off'` 即隐藏。
+
+| 功能 | 说明 | 代码位置 |
+|---|---|---|
+| 演示拖车 | 按公司固定生成 2–3 个（`TL ###`，8,000/10,000 L） | `lib/mock/trailers.ts` |
+| 挂车 / 摘车 | 首页"拖车 DEMO"卡片；可挂多个；摘车时有余量会提示；状态存本机 | `components/Trailers.tsx`、`lib/trailers.tsx` |
+| 收料到拖车 | 完成表单"装入"选牵引车或拖车；**服务器上仍记在牵引车**，拖车分配只存本机 | `job/[id].tsx` |
+| 拖车余量 | 分配到该拖车且仍在牵引车当前装载周期内的收料之和；牵引车卸料/转料后自动清零 | `lib/mock/trailers.ts` `trailerLoads` |
+
 ## 9. Pickups（清运历史）
 
 | 功能 | 说明 | 代码位置 |
@@ -226,7 +237,7 @@
 
 相对老 WasteID（QR2id App）司机端，以下功能当前**未包含**：
 
-- 拖车/挂车（Trailer/Dog）绑定与多拖车
+- 拖车/挂车（Trailer/Dog）的真实数据（目前仅本地演示，见 8c）
 - 收料时选目的处理设施（后端 `pickups` 无字段，待加列）
 - 清运照片（后端 `PHOTO_KINDS` 未允许 `pickup`，待后端放开）
 - 离线模式

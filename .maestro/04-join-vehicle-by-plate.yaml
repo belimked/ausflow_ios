@@ -1,26 +1,12 @@
 appId: com.ausflow
-name: Join a vehicle by searching its registration and see its on-board load on Today
+name: Join a vehicle by searching its registration and open its on-board list
 tags:
   - auth
   - data
 ---
 # Only the local driver/vehicle profile changes; nothing is written to UAT.
 - runFlow: subflows/sign-in.yaml
-- tapOn: "Choose driver & vehicle"
-- tapOn:
-    id: "setup-plate"
-- inputText: ${E2E_PLATE}
-- tapOn: ${E2E_PLATE}
-- runFlow:
-    when:
-      visible: ${E2E_DRIVER}
-    commands:
-      - tapOn: ${E2E_DRIVER}
-- tapOn:
-    id: "setup-save"
-- extendedWaitUntil:
-    visible: "ON BOARD · ${E2E_PLATE}"
-    timeout: 15000
+- runFlow: subflows/join-by-plate.yaml
 # Phase 3: the on-board card opens the vehicle's load list (old WasteID "Show").
 - tapOn: "ON BOARD · ${E2E_PLATE}"
 - extendedWaitUntil:

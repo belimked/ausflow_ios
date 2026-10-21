@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DeviceRow, JobRow } from '@/components/items'
+import { TrailersCard } from '@/components/Trailers'
 import { Button, Card, Divider, EmptyState, Icon, SectionTitle, Stat } from '@/components/ui'
 import { ENV_LABEL } from '@/lib/config'
 import { deviceTitle, dueState, fmtDuration, fmtL, fmtTime, nextService, startOfDay } from '@/lib/format'
@@ -117,6 +118,7 @@ export default function Today() {
           <OnBoard litres={Math.max(0, ix.loads.get(vehicle.id) || 0)} tank={vehicle.tank || 0} plate={vehicle.plate}
             onPress={() => router.push('/vehicle')} onOffload={canWrite ? () => router.push('/offload') : undefined} />
         ) : null}
+        {vehicle ? <TrailersCard /> : null}
 
         <View style={s.stats}>
           <Stat label="Pickups today" value={String(view?.doneToday.length || 0)} icon="checkmark.circle.fill" tone="success" />

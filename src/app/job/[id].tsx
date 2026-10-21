@@ -9,6 +9,7 @@ import { LOCATION_FLAG_METRES } from '@/lib/config'
 import { deviceTitle, fmtDateTime, fmtDuration, fmtL, fmtM, fmtTime } from '@/lib/format'
 import { currentCoords } from '@/lib/geo'
 import { pickupDelivery } from '@/lib/load'
+import { useTrailers } from '@/lib/trailers'
 import { useIndex, useStore } from '@/lib/store'
 import { colors } from '@/lib/theme'
 import type { Pickup } from '@/lib/types'
@@ -49,6 +50,9 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
   const [volume, setVolume] = useState('')
   const [note, setNote] = useState('')
   const [waste, setWaste] = useState(pickup.waste || DEFAULT_WASTE)
+  // DEMO: an attached trailer can be the target; the server still records the pickup on the truck.
+  const trailers = useTrailers()
+  const [into, setInto] = useState('')
   const wastes = wasteOptions(pickup.waste || dev?.waste)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -69,6 +73,7 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
       const coords = await currentCoords()
       setBusy('Saving…')
       const done = await finishJob(pickup.id, { volume: v, note, coords, waste })
+      if (into) trailers.assign(done.id, into)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       onDone(done)
     } catch (e) {
@@ -132,6 +137,20 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
             {over ? `More than the ${fmtL(cap)} trap capacity — it will be flagged for review.` : cap ? `Trap capacity ${fmtL(cap)}` : 'Trap capacity unknown'}
           </Text>
         </Card>
+
+        {trailers.attached.length ? (
+          <>
+            <SectionTitle title="Collect into" right={<Pill label="DEMO" tone="warning" />} />
+            <View style={s.wastes}>
+              {[{ id: '', plate: vehicle?.plate || 'Truck' }, ...trailers.attached].map((x) => (
+                <Pressable key={x.id || 'truck'} onPress={() => setInto(x.id)} style={[s.waste, into === x.id && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                  <Icon name={x.id ? 'link' : 'truck.box.fill'} size={14} color={into === x.id ? '#fff' : colors.muted} />
+                  <Text style={[s.wasteText, into === x.id && { color: '#fff' }]}>{x.plate}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
 
         <SectionTitle title="Waste type" />
         <View style={s.wastes}>
