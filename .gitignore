@@ -40,5 +40,3 @@ yarn-error.*
 /ios
 /android
 
-# simulator build reused by CI
-/build

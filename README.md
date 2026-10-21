@@ -20,7 +20,12 @@ Feature inventory: [docs/features.md](docs/features.md). Old WasteID feature por
 
 ## Tests
 
-Only unit tests run locally. Functional tests run in GitHub Actions (**Tests** workflow, every push to any branch): typecheck, lint and unit tests on Linux, then a Release simulator build on macOS driven by [Maestro](https://maestro.mobile.dev) flows in `.maestro/`. The JUnit report and failure screenshots are uploaded as the `maestro-<run>` artifact. The simulator build is cached by a fingerprint of the app's files (`src/`, `assets/`, `app.json`, package files): when only flows, docs or workflows change, the next run reuses it and skips the ~25-minute build.
+Only unit tests run locally. Building and functional testing are two separate GitHub Actions workflows:
+
+- **Build** (`.github/workflows/build.yml`) runs when the app's own files change (`src/`, `assets/`, `app.json`, package files): typecheck, lint, unit tests, then a Release build for the iOS simulator, kept on GitHub for 30 days as an artifact named by `ci/app-artifact-name.sh` (Xcode version + content hash of the app files). If that artifact already exists it does not build again. When it uploads a new build it starts E2E.
+- **E2E** (`.github/workflows/e2e.yml`) never compiles. It runs when `.maestro/` changes, when Build starts it, or by hand: it downloads the build of the current app files and runs the [Maestro](https://maestro.mobile.dev) flows on a simulator. If that build is still being made it stops quietly (Build will start it); if there is none it fails and asks for a Build run. The JUnit report and screenshots are uploaded as `maestro-<run>`.
+
+So changing only flows takes about 10 minutes, and a failing flow never causes a rebuild.
 
 | Flow tag | Needs | What it covers |
 | --- | --- | --- |

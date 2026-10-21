@@ -1,42 +1,28 @@
-name: Tests
+name: E2E
 
-# Unit tests run locally and here; functional (Maestro) tests only run here, on an iOS simulator.
+# Functional tests (Maestro on an iOS simulator). Never compiles: it downloads the build that build.yml keeps on
+# GitHub for the same app files (ci/app-artifact-name.sh). Runs when the flows change, when Build finishes a new
+# build, or by hand.
 on:
   push:
     branches: ['**']
-  pull_request:
+    paths:
+      - '.maestro/**'
+      - '.github/workflows/e2e.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: tests-${{ github.ref }}
+  group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CI: 1
-  EXPO_NO_TELEMETRY: 1
-
 jobs:
-  unit:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npx expo lint
-      - run: npm test -- --ci
-
   e2e:
-    needs: unit
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -44,69 +30,56 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Find the build of this app version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NAME=$(ci/app-artifact-name.sh)
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$NAME&per_page=5" \
+            --jq '[.artifacts[] | select(.expired == false)][0].workflow_run.id // empty')
+          if [ -n "$RUN" ]; then
+            echo "Using $NAME from Build run $RUN"
+            echo "APP_ARTIFACT=$NAME" >> "$GITHUB_ENV"
+            echo "APP_RUN=$RUN" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          BUSY=$(gh run list --workflow build.yml --branch "$GITHUB_REF_NAME" --json status,headSha \
+            --jq "[.[] | select(.headSha == \"$GITHUB_SHA\" and .status != \"completed\")] | length")
+          if [ "$BUSY" != 0 ]; then
+            echo "::notice::$NAME is still being built; Build starts E2E when it is done."
+            echo "SKIP=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "::error::No build of this app version on GitHub ($NAME). Run the Build workflow for this branch."
+          exit 1
+
+      - uses: actions/download-artifact@v4
+        if: env.SKIP != 'true'
+        with:
+          name: ${{ env.APP_ARTIFACT }}
+          run-id: ${{ env.APP_RUN }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/app
+
+      - name: Unpack the app
+        if: env.SKIP != 'true'
+        run: tar -xzf "$RUNNER_TEMP/app/AusFlow.app.tgz" -C "$RUNNER_TEMP/app" && ls "$RUNNER_TEMP/app"
+
       # Maestro needs Java 17+.
       - uses: actions/setup-java@v5
+        if: env.SKIP != 'true'
         with:
           distribution: temurin
           java-version: 17
 
-      # The simulator build only depends on the app's own files, not on the flows, docs or workflows. Reuse it when
-      # none of them changed, so iterating on .maestro/ costs minutes instead of a 25-minute rebuild.
-      - name: App fingerprint
-        id: fp
-        run: |
-          XCODE=$(xcodebuild -version | head -1 | tr ' ' '-')
-          echo "key=ios-sim-app-$XCODE-${{ hashFiles('src/**', 'assets/**', 'app.json', 'package.json', 'package-lock.json', 'tsconfig.json', 'babel.config.*', 'metro.config.*') }}" >> "$GITHUB_OUTPUT"
-
-      - name: Restore prebuilt app
-        id: app
-        uses: actions/cache/restore@v4
-        with:
-          path: build/AusFlow.app
-          key: ${{ steps.fp.outputs.key }}
-
-      - uses: actions/setup-node@v4
-        if: steps.app.outputs.cache-hit != 'true'
-        with:
-          node-version: 22
-          cache: npm
-
-      - if: steps.app.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Generate native project
-        if: steps.app.outputs.cache-hit != 'true'
-        run: npx expo prebuild -p ios --clean
-
-      # Release bundles the JS into the app, so no Metro server is needed. Simulator builds need no signing.
-      - name: Build for simulator
-        if: steps.app.outputs.cache-hit != 'true'
-        run: |
-          xcodebuild -workspace ios/AusFlow.xcworkspace -scheme AusFlow -configuration Release \
-            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO -quiet build
-          mkdir -p build
-          cp -R "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator/AusFlow.app" build/
-
-      # Saved right away (not at the end of the job) so a failing flow still leaves the build for the next run.
-      - name: Save prebuilt app
-        if: steps.app.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: build/AusFlow.app
-          key: ${{ steps.fp.outputs.key }}
-
-      - name: Using a prebuilt app
-        if: steps.app.outputs.cache-hit == 'true'
-        run: echo "App files unchanged since ${{ steps.fp.outputs.key }} was built; skipping the build."
-
       - name: Boot simulator and install the app
+        if: env.SKIP != 'true'
         run: |
           UDID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name | startswith("iPhone"))] | first | .udid')
           [ -n "$UDID" ] && [ "$UDID" != null ] || { echo "::error::No iPhone simulator available"; exit 1; }
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" build/AusFlow.app
+          xcrun simctl install "$UDID" "$RUNNER_TEMP/app/AusFlow.app"
           # Avoid the location prompt and give the pickup flow a fixed position (Adelaide CBD).
           xcrun simctl privacy "$UDID" grant location com.ausflow || true
           xcrun simctl location "$UDID" set -34.9285,138.6007 || true
@@ -114,17 +87,20 @@ jobs:
 
       # Tells "app broken" apart from "UAT unreachable from the runner" when a flow fails.
       - name: Check UAT is reachable
+        if: env.SKIP != 'true'
         run: |
           curl -s -m 20 -w '\nHTTP %{http_code}\n' -X POST -H 'Content-Type: application/json' \
             -d '{"username":"ci-probe-no-such-user","password":"x"}' https://uat.ausflow.saulxj.ggff.net/api/login || echo "::warning::UAT not reachable from the runner"
 
       - name: Install Maestro
+        if: env.SKIP != 'true'
         run: |
           curl -fsSL https://get.maestro.mobile.dev | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       # Flows that need an account or write to UAT only run when their secrets/variables are configured.
       - name: Run functional tests
+        if: env.SKIP != 'true'
         env:
           # The XCTest driver can take several minutes to start on a fresh hosted runner (default timeout is too short).
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 600000
@@ -159,7 +135,7 @@ jobs:
             -e E2E_PLATE="$E2E_PLATE" -e E2E_DEVICE="$E2E_DEVICE"
 
       - name: Upload test report and screenshots
-        if: always()
+        if: always() && env.SKIP != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: maestro-${{ github.run_number }}
