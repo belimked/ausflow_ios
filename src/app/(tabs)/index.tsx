@@ -79,7 +79,7 @@ export default function Today() {
           </View>
         </View>
 
-        <Pressable onPress={() => router.push('/setup')} style={({ pressed }) => [s.workAs, pressed && { opacity: 0.85 }]}>
+        <Pressable testID="today-working-as" onPress={() => router.push('/setup')} style={({ pressed }) => [s.workAs, pressed && { opacity: 0.85 }]}>
           <View style={s.workIcon}><Icon name="truck.box.fill" size={20} color="#fff" /></View>
           {profile && driver && vehicle ? (
             <View style={{ flex: 1 }}>
@@ -110,6 +110,7 @@ export default function Today() {
           </Card>
         ) : (
           <Pressable
+            testID="today-scan"
             disabled={!canWrite}
             onPress={() => router.push(profile ? '/scan' : '/setup')}
             style={({ pressed }) => [s.scan, !canWrite && { opacity: 0.6 }, pressed && { transform: [{ scale: 0.98 }] }]}>
@@ -159,7 +160,7 @@ function OnBoard({ litres, tank, plate, onPress, onOffload }: { litres: number; 
   const pct = tank ? Math.min(1, litres / tank) : 0
   const full = tank > 0 && litres / tank >= 0.9
   return (
-    <Card style={s.load} onPress={onPress}>
+    <Card testID="today-on-board" style={s.load} onPress={onPress}>
       <View style={s.loadHead}>
         <Text style={s.loadLabel}>ON BOARD · {plate}</Text>
         <Text style={[s.loadValue, full && { color: colors.danger }]}>

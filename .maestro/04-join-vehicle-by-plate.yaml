@@ -8,7 +8,8 @@ tags:
 - runFlow: subflows/sign-in.yaml
 - runFlow: subflows/join-by-plate.yaml
 # Phase 3: the on-board card opens the vehicle's load list (old WasteID "Show").
-- tapOn: "ON BOARD · ${E2E_PLATE}"
+- tapOn:
+    id: "today-on-board"
 - extendedWaitUntil:
     visible: "Pickups on board · .*"
     timeout: 10000

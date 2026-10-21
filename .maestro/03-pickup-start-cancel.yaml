@@ -9,7 +9,8 @@ tags:
 - runFlow: subflows/sign-in.yaml
 - runFlow: subflows/join-by-plate.yaml
 
-- tapOn: "Scan device QR"
+- tapOn:
+    id: "today-scan"
 # The simulator has no camera; use manual entry from whichever screen shows up.
 - runFlow:
     when:

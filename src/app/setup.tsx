@@ -88,7 +88,7 @@ export default function Setup() {
           </View>
           {plate.trim() ? (matches.length ? matches.slice(0, 8).map((v) => (
             <View key={v.id}><Divider />
-              <Row icon="truck.box.fill" title={v.plate} subtitle={`${ix.companies.get(v.companyId || '')?.name || ''} · ${vehicleSub(v)}`} onPress={() => pickVehicle(v)} />
+              <Row testID="setup-plate-match" icon="truck.box.fill" title={v.plate} subtitle={`${ix.companies.get(v.companyId || '')?.name || ''} · ${vehicleSub(v)}`} onPress={() => pickVehicle(v)} />
             </View>
           )) : <><Divider /><EmptyState icon="truck.box" title="No vehicle with that registration" /></>) : null}
         </Card>

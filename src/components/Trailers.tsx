@@ -35,7 +35,7 @@ export function TrailersCard() {
       {t.attached.map((x) => (
         <View key={x.id}>
           <Divider />
-          <Row icon="link" tone="neutral" title={x.plate} subtitle={`${fmtL(t.loads.get(x.id) || 0)} of ${fmtL(x.tank)}`} onPress={() => detach(x.id, x.plate)} chevron={false} />
+          <Row testID="trailer-attached" icon="link" tone="neutral" title={x.plate} subtitle={`${fmtL(t.loads.get(x.id) || 0)} of ${fmtL(x.tank)}`} onPress={() => detach(x.id, x.plate)} chevron={false} />
         </View>
       ))}
       {free.length ? (

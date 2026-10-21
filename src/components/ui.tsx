@@ -31,10 +31,10 @@ export function Pill({ label, tone = 'neutral', icon }: { label: string; tone?: 
   )
 }
 
-export function Card({ children, style, onPress }: { children: ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }) {
-  if (!onPress) return <View style={[styles.card, style]}>{children}</View>
+export function Card({ children, style, onPress, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void; testID?: string }) {
+  if (!onPress) return <View testID={testID} style={[styles.card, style]}>{children}</View>
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, style, pressed && styles.pressed]}>
+    <Pressable testID={testID} onPress={onPress} style={({ pressed }) => [styles.card, style, pressed && styles.pressed]}>
       {children}
     </Pressable>
   )

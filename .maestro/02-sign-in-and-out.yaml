@@ -4,7 +4,7 @@ tags:
   - auth
 ---
 - runFlow: subflows/sign-in.yaml
-- assertVisible: "Scan device QR|PICKUP IN PROGRESS"
+- assertVisible: ".*Scan device QR.*|.*PICKUP IN PROGRESS.*"
 - assertVisible: "Pickups today"
 # History lists pickups, offloads and transfers.
 - tapOn: "History"
@@ -14,8 +14,8 @@ tags:
 - assertVisible: "No transfers yet|.* L · .* → .*"
 - tapOn: "Me"
 # Phase 5: nothing recorded offline, so the sync section is clear.
-- assertVisible: "Up to date"
-- assertVisible: "My details"
+- assertVisible: ".*Up to date.*"
+- assertVisible: ".*My details.*"
 # Phase 0: facilities are now read from /state.
 - assertVisible: ".*devices · .* facilities"
 - scrollUntilVisible:

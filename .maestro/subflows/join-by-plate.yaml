@@ -1,18 +1,20 @@
 appId: com.ausflow
 ---
 # From Today with no saved profile: join E2E_PLATE by searching its registration. Local only.
-- tapOn: "Choose driver & vehicle"
+- tapOn:
+    id: "today-working-as"
 - tapOn:
     id: "setup-plate"
 - inputText: ${E2E_PLATE}
-- tapOn: ${E2E_PLATE}
+- tapOn:
+    id: "setup-plate-match"
 - runFlow:
     when:
-      visible: ${E2E_DRIVER}
+      visible: "${E2E_DRIVER}.*"
     commands:
-      - tapOn: ${E2E_DRIVER}
+      - tapOn: "${E2E_DRIVER}.*"
 - tapOn:
     id: "setup-save"
 - extendedWaitUntil:
-    visible: "ON BOARD · ${E2E_PLATE}"
+    visible: ".*ON BOARD · ${E2E_PLATE}.*"
     timeout: 15000

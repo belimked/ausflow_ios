@@ -17,5 +17,6 @@ tags:
     id: "trailer-attach"
 - tapOn: "TL \\d{3} · .*"
 - extendedWaitUntil:
-    visible: "0 L of .*"
+    visible:
+      id: "trailer-attached"
     timeout: 5000

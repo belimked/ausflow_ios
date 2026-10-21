@@ -10,8 +10,11 @@ appId: com.ausflow
 - tapOn:
     id: "login-username"
 - inputText: ${E2E_USERNAME}
-# "Next" moves focus to the password field. Tapping it instead can miss while the keyboard pushes the form up.
-- pressKey: Enter
+# Tap the password field only once the keyboard has finished pushing the form up (an early tap misses).
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "login-password"
 - inputText: ${E2E_PASSWORD}
 # "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
 - pressKey: Enter
