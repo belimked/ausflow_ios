@@ -7,20 +7,7 @@ tags:
 ---
 # Cancelling deletes the pickup, so the run leaves no pickup behind on UAT.
 - runFlow: subflows/sign-in.yaml
-# sign-in clears the keychain, so no driver/vehicle profile is saved yet.
-- tapOn: "Choose driver & vehicle"
-- tapOn: ${E2E_COMPANY}
-- runFlow:
-    when:
-      visible: ${E2E_DRIVER}
-    commands:
-      - tapOn: ${E2E_DRIVER}
-- scrollUntilVisible:
-    element: ${E2E_PLATE}
-    direction: DOWN
-- tapOn: ${E2E_PLATE}
-- tapOn:
-    id: "setup-save"
+- runFlow: subflows/join-by-plate.yaml
 
 - tapOn: "Scan device QR"
 # The simulator has no camera; use manual entry from whichever screen shows up.

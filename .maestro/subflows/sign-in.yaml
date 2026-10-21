@@ -13,8 +13,9 @@ appId: com.ausflow
 - tapOn:
     id: "login-password"
 - inputText: ${E2E_PASSWORD}
-# The password field submits on return, which also keeps the keyboard from covering the button.
-- pressKey: Enter
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening).*"
     timeout: 30000

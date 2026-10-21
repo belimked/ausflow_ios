@@ -20,7 +20,9 @@ tags:
 - tapOn:
     id: "login-password"
 - inputText: "not-the-password"
-- pressKey: Enter
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
 - extendedWaitUntil:
     visible: "Invalid username or password"
     timeout: 30000
