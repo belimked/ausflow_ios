@@ -78,7 +78,7 @@ export default function DeviceScreen() {
     } else if (myOngoing) {
       action = <Button title="Finish your current pickup first" kind="secondary" icon="arrow.uturn.right" onPress={() => router.push(`/job/${myOngoing.id}`)} />
     } else {
-      action = <Button title={busy || 'Start pickup'} icon="play.fill" onPress={start} loading={!!busy} />
+      action = <Button testID="device-start" title={busy || 'Start pickup'} icon="play.fill" onPress={start} loading={!!busy} />
     }
   }
 

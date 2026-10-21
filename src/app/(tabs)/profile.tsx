@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Button, Card, Divider, Pill, Row, ScreenHeader, SectionTitle } from '@/components/ui'
 import { API_BASE, ENV_LABEL } from '@/lib/config'
-import { fmtTime, initials } from '@/lib/format'
+import { fmtL, fmtTime, initials } from '@/lib/format'
 import { useIndex, useStore } from '@/lib/store'
 import { colors } from '@/lib/theme'
 
@@ -45,12 +45,19 @@ export default function Profile() {
           <Row icon="truck.box.fill" title={vehicle?.plate || 'No vehicle selected'} subtitle={vehicle ? `${vehicle.type === 'large' ? 'Large truck' : 'Small truck'}${vehicle.tank ? ` · ${vehicle.tank.toLocaleString('en-AU')} L tank` : ''}` : 'Vehicle'} onPress={() => router.push('/setup')} />
           <Divider />
           <Row icon="building.2.fill" title={company?.name || 'No company selected'} subtitle="Transport company" onPress={() => router.push('/setup')} />
+          {vehicle ? (
+            <>
+              <Divider />
+              <Row icon="drop.fill" tone="neutral" title={fmtL(Math.max(0, ix.loads.get(vehicle.id) || 0))}
+                subtitle={vehicle.tank ? `On board · ${fmtL(vehicle.tank)} tank` : 'On board'} />
+            </>
+          ) : null}
         </Card>
 
         <SectionTitle title="Data" />
         <Card style={s.group}>
           <Row icon="arrow.triangle.2.circlepath" tone="success" title="Refresh data"
-            subtitle={loadedAt ? `Last updated ${fmtTime(new Date(loadedAt).toISOString())} · ${data?.devices.length || 0} devices` : 'Not loaded yet'}
+            subtitle={loadedAt ? `Last updated ${fmtTime(new Date(loadedAt).toISOString())} · ${data?.devices.length || 0} devices · ${data?.facilities.length || 0} facilities` : 'Not loaded yet'}
             onPress={refresh} chevron={false} right={loading ? <Text style={s.muted}>Updating…</Text> : null} />
           <Divider />
           <Row icon="server.rack" tone="neutral" title={`${ENV_LABEL} environment`} subtitle={API_BASE.replace('https://', '')} />
@@ -58,7 +65,7 @@ export default function Profile() {
           <Row icon="info.circle.fill" tone="neutral" title="App version" subtitle={`${Constants.expoConfig?.version || '1.0.0'}`} />
         </Card>
 
-        <Button title="Sign out" kind="danger" icon="rectangle.portrait.and.arrow.right" onPress={confirmSignOut} style={{ marginTop: 28 }} />
+        <Button testID="sign-out" title="Sign out" kind="danger" icon="rectangle.portrait.and.arrow.right" onPress={confirmSignOut} style={{ marginTop: 28 }} />
       </View>
     </ScrollView>
   )

@@ -51,7 +51,7 @@ export default function Login() {
           <View style={s.field}>
             <Icon name="person" size={17} color={colors.faint} />
             <TextInput
-              value={username} onChangeText={setUsername} placeholder="e.g. ops01" placeholderTextColor={colors.faint}
+              testID="login-username" value={username} onChangeText={setUsername} placeholder="e.g. ops01" placeholderTextColor={colors.faint}
               autoCapitalize="none" autoCorrect={false} textContentType="username" returnKeyType="next" style={s.input}
             />
           </View>
@@ -60,7 +60,7 @@ export default function Login() {
           <View style={s.field}>
             <Icon name="lock" size={17} color={colors.faint} />
             <TextInput
-              value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={colors.faint}
+              testID="login-password" value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={colors.faint}
               secureTextEntry={!show} textContentType="password" returnKeyType="go" onSubmitEditing={submit} style={s.input}
             />
             <Pressable hitSlop={10} onPress={() => setShow((v) => !v)}>
@@ -75,7 +75,7 @@ export default function Login() {
             </View>
           ) : null}
 
-          <Button title="Sign in" icon="arrow.right" onPress={submit} loading={busy} style={{ marginTop: 20 }} />
+          <Button testID="login-submit" title="Sign in" icon="arrow.right" onPress={submit} loading={busy} style={{ marginTop: 20 }} />
         </View>
 
         <Text style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>Use the same account as the AusFlow web console.</Text>

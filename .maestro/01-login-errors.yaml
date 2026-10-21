@@ -1,0 +1,25 @@
+appId: com.ausflow
+name: Login screen validates input and shows server errors
+tags:
+  - smoke
+---
+- clearKeychain
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 30000
+- assertVisible: "UAT environment"
+- tapOn:
+    id: "login-submit"
+- assertVisible: "Enter your username and password."
+- tapOn:
+    id: "login-username"
+- inputText: "e2e-no-such-user"
+- tapOn:
+    id: "login-password"
+- inputText: "not-the-password"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Invalid username or password"
+    timeout: 30000

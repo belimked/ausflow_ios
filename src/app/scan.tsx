@@ -103,7 +103,7 @@ export default function Scan() {
         {manual ? (
           <ManualEntry code={code} setCode={setCode} onSubmit={() => resolve(code)} error={null} onCancel={() => setManual(false)} />
         ) : (
-          <Pressable onPress={() => setManual(true)} style={s.manualBtn}>
+          <Pressable testID="scan-manual" onPress={() => setManual(true)} style={s.manualBtn}>
             <Icon name="keyboard" size={18} color="#fff" />
             <Text style={s.manualText}>Enter code manually</Text>
           </Pressable>
@@ -119,12 +119,12 @@ function ManualEntry({ code, setCode, onSubmit, error, onCancel }: { code: strin
       <Text style={s.sheetTitle}>Enter device code</Text>
       <Text style={s.sheetSub}>The QR code, tag ID or device ref (e.g. DV539135).</Text>
       <TextInput
-        value={code} onChangeText={setCode} autoFocus autoCapitalize="characters" autoCorrect={false}
+        testID="scan-code" value={code} onChangeText={setCode} autoFocus autoCapitalize="characters" autoCorrect={false}
         placeholder="Code" placeholderTextColor={colors.faint} style={s.codeInput} returnKeyType="search" onSubmitEditing={onSubmit} />
       {error ? <Text style={s.sheetError}>No device found for “{error}”</Text> : null}
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
         {onCancel ? <Button title="Cancel" kind="secondary" onPress={onCancel} style={{ flex: 1 }} size="md" /> : null}
-        <Button title="Find device" icon="magnifyingglass" onPress={onSubmit} disabled={!code.trim()} style={{ flex: 2 }} size="md" />
+        <Button testID="scan-find" title="Find device" icon="magnifyingglass" onPress={onSubmit} disabled={!code.trim()} style={{ flex: 2 }} size="md" />
       </View>
     </KeyboardAvoidingView>
   )

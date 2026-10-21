@@ -80,7 +80,7 @@ export default function Setup() {
         ) : null}
       </ScrollView>
       <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <Button title="Save" icon="checkmark" onPress={save} disabled={!ready} />
+        <Button testID="setup-save" title="Save" icon="checkmark" onPress={save} disabled={!ready} />
       </View>
     </View>
   )

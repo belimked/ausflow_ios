@@ -41,9 +41,9 @@ export function Card({ children, style, onPress }: { children: ReactNode; style?
 }
 
 type ButtonKind = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success'
-export function Button({ title, onPress, kind = 'primary', icon, loading, disabled, style, size = 'lg' }: {
+export function Button({ title, onPress, kind = 'primary', icon, loading, disabled, style, size = 'lg', testID }: {
   title: string; onPress: () => void; kind?: ButtonKind; icon?: SfName; loading?: boolean; disabled?: boolean
-  style?: StyleProp<ViewStyle>; size?: 'lg' | 'md'
+  style?: StyleProp<ViewStyle>; size?: 'lg' | 'md'; testID?: string
 }) {
   const palette = {
     primary: { bg: colors.primary, fg: '#fff' },
@@ -55,6 +55,7 @@ export function Button({ title, onPress, kind = 'primary', icon, loading, disabl
   const off = disabled || loading
   return (
     <Pressable
+      testID={testID}
       disabled={off}
       onPress={() => { Haptics.selectionAsync(); onPress() }}
       style={({ pressed }) => [

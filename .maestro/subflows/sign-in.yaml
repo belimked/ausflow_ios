@@ -1,0 +1,20 @@
+appId: com.ausflow
+---
+# SecureStore lives in the iOS keychain, which survives clearState, so wipe it to start signed out.
+- clearKeychain
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 30000
+- tapOn:
+    id: "login-username"
+- inputText: ${E2E_USERNAME}
+- tapOn:
+    id: "login-password"
+- inputText: ${E2E_PASSWORD}
+# The password field submits on return, which also keeps the keyboard from covering the button.
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening).*"
+    timeout: 30000

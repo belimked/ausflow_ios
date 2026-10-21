@@ -139,7 +139,7 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
           <Icon name="location.fill" size={11} color={colors.faint} /> Your location is recorded when you finish. Pickups more than {LOCATION_FLAG_METRES} m from the device are flagged.
         </Text>
 
-        <Button title="Cancel pickup" kind="ghost" onPress={cancel} style={{ marginTop: 18 }} size="md" />
+        <Button testID="job-cancel" title="Cancel pickup" kind="ghost" onPress={cancel} style={{ marginTop: 18 }} size="md" />
       </ScrollView>
       <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Button title={busy || (valid ? `Complete · ${v.toLocaleString('en-AU')} L` : 'Enter volume to complete')} kind="success"
