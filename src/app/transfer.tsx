@@ -65,7 +65,7 @@ export default function TransferScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }}>
         <Text style={s.intro}>
           Move the whole load from this truck into another truck of your company, for example from a small truck into the big tanker.
-          Scan the other truck's sticker or pick it from the list.
+          Scan the sticker of the other truck or pick it from the list.
         </Text>
 
         <SectionTitle title="From" />
