@@ -48,6 +48,7 @@ tags:
     element:
       id: "job-cancel"
     direction: DOWN
+    centerElement: true
 - tapOn:
     id: "job-cancel"
 - assertVisible: "Cancel this pickup\\?"

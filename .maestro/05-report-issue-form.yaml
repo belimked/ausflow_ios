@@ -18,6 +18,7 @@ tags:
     element:
       id: "device-report-issue"
     direction: DOWN
+    centerElement: true
 - tapOn:
     id: "device-report-issue"
 - assertVisible: "What's the problem\\?"

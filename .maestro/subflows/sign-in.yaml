@@ -36,17 +36,13 @@ appId: com.ausflow
     text: "^${E2E_USERNAME}$"
 # "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
 - pressKey: Enter
-# iOS may offer to save the password in a system sheet that covers the app; dismiss it when it shows up.
+# Today shows once /state has loaded (slow on the first flow of a run). iOS may then offer to save the password in
+# a system sheet that covers the app, before or after Today appears; dismiss it in either order.
 - extendedWaitUntil:
     visible: "Not Now|Good (morning|afternoon|evening).*"
-    timeout: 30000
-- waitForAnimationToEnd:
-    timeout: 3000
-- runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    timeout: 60000
+- runFlow: subflows/dismiss-save-password.yaml
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening).*"
-    timeout: 15000
+    timeout: 30000
+- runFlow: subflows/dismiss-save-password.yaml

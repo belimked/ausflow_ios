@@ -16,6 +16,7 @@ appId: com.ausflow
 - scrollUntilVisible:
     element: ".*${E2E_DRIVER}.*"
     direction: DOWN
+    centerElement: true
 - tapOn: ".*${E2E_DRIVER}.*"
 - tapOn:
     id: "setup-save"
