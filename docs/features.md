@@ -86,7 +86,7 @@
 | 作业身份卡 | 显示当前司机·车牌·公司，点按进入 Setup | `index.tsx` |
 | 扫码入口 | 大按钮；未设身份则先去 Setup；只读账号禁用 | `index.tsx` |
 | 进行中清运卡 | 若本司机有进行中清运：显示设备、已用时（实时计时）、"完成清运"按钮 | `index.tsx` + `useNow` |
-| 车上余量 | 当前车辆余量 / 罐容量进度条，≥90% 标红；点按进入车载清单；有余量时显示"卸料" | `index.tsx` `OnBoard` |
+| 车上余量 | 当前车辆余量 / 罐容量进度条，≥90% 标红；点按进入车载清单；有余量时并排显示 "Offload at facility" 和 "Transfer to truck" 两个按钮；扫码提示同时提醒可扫另一台车转料 | `index.tsx` `OnBoard` |
 | 统计三联 | 今日完成数、今日收集总量(L)、逾期设备数 | `index.tsx` `Stat` |
 | Due next | 即将到期的前 5 台设备（排除进行中） | `index.tsx` |
 | Completed today | 今日已完成清运列表 | `index.tsx` |
@@ -119,6 +119,8 @@
 | 最近清运 | 该设备最近 5 条已完成清运 | `device/[id].tsx` |
 | 动作按钮（上下文相关） | 开始清运 / 完成（本人进行中）/ 他人进行中 / 先完成你当前清运 / 去设置身份 | `device/[id].tsx` `action` |
 | 非 Active 设备确认 | 设备非 Active 时开始清运需二次确认 | `device/[id].tsx` `start` |
+| 授权设备 | 只能对**本公司负责**的设备作业：扫到其他公司（或未分配公司）的设备时提示 "Not an authorised device"；设备页显示红色提示且无开单按钮；命令层同样拒绝 | `lib/scan.ts`、`device/[id].tsx`、`commands.ts` `readyToWork` |
+| 定位预取 | 进入设备页即开始取高精度定位，开单时 90 秒内的定位直接使用，不再等 GPS | `device/[id].tsx` `locate` |
 | 问题区块 | 列出该设备未关闭的问题（分类、描述、日期、上报人）；可写账号可"上报问题" | `device/[id].tsx`、`lib/issues.ts` |
 | 仅服务不收料 | 记录"已服务但未收料"：生成 0 L、`Service only` 的已完成记录，更新上次服务并写变更日志（记录方式待客户确认） | `device/[id].tsx` `recordService`、`commands.ts` `planServiceOnly` |
 | 进场距离预取 | 进入页面静默取最近已知定位，用于显示"多少米外" | `device/[id].tsx` + `quietCoords` |
@@ -160,7 +162,7 @@
 |---|---|---|
 | 卸料 (Offload) | 扫设施牌或选附近设施（按距离）→ 确认车辆（可换）→ 交付量（默认车上余量，可改；与余量相差 >10% 提醒）→ 废物类型（默认车上占比最大的）→ 写 `unloads`（`UL…`，记录实际 GPS）；成功页显示车上剩余 | `src/app/offload.tsx`、`commands.ts` `planUnload`、`lib/delivery.ts` |
 | 设施位置提醒 | 当前位置距设施 >200m 时提醒 | `offload.tsx` |
-| 转料 (Transfer All Waste) | 扫目标车贴纸或选本公司其他车 → 显示两车转后载量 → 整车余量全部转出，写 `transfers`（`TR…`）；超过目标车罐容量时警告并二次确认；只能转给本公司车辆 | `src/app/transfer.tsx`、`commands.ts` `planTransfer` |
+| 转料 (Transfer All Waste) | 入口：首页余量卡片 / 车载清单的 "Transfer to truck"，或车上有料时扫另一台车的贴纸。页面说明用途（小车倒进大罐车），接收车列表大车优先并标注车型与罐容量；扫目标车贴纸或选本公司其他车 → 显示两车转后载量 → 整车余量全部转出，写 `transfers`（`TR…`）；超过目标车罐容量时警告并二次确认；只能转给本公司车辆 | `src/app/transfer.tsx`、`commands.ts` `planTransfer` |
 | 车载清单 (Show) | 当前装载周期内的收料和转入，起始时间；可去卸料 / 转料 | `src/app/vehicle.tsx`、`lib/load.ts` `currentCycle` |
 | 收料去向 | 清运详情显示"已送到某设施（时间）"或"仍在某车上" | `job/[id].tsx`、`lib/load.ts` `pickupDelivery` |
 | 规则 | 有进行中清运时不能卸料/转料 | `commands.ts` `readyToMoveLoad` |
@@ -217,7 +219,8 @@
 | 离线模式 | 启动先读本机快照（离线可打开）；连不上服务器时写操作进本机队列并立即显示（临时编号 `local-…`）；联网/启动/提交后/手动按序补发，补发时基于最新数据重新分配正式编号并改写后续引用；按"发生时间"识别已到达服务器的请求、不重复提交；服务器拒绝的记录转为"同步问题"（含依赖它的记录），可重试或放弃，不静默丢弃；队列和问题按用户存本机，登出/会话过期不丢 | `lib/offline/*`、`lib/outbox.ts`、`store.tsx` |
 | 同步状态 | 首页顶部"OFFLINE / WAITING · N / SENDING"；我 → Sync：状态、待发数、立即发送、同步问题列表 | `(tabs)/index.tsx`、`(tabs)/profile.tsx` |
 | 全量拉取 | 登录/刷新时 `GET /state`；App 读取 公司/位置/设备/司机/车辆/设施/清运/转料/卸料/问题上报 + 各类 seq 序号 | `api.ts` `fetchState` |
-| 命令式写入 | 每个写操作是一个带发生时间的命令（`lib/commands.ts`），经写入层（`lib/outbox.ts`）基于最新数据规划为 `/sync` 内容；目前在线直发，离线队列将复用 | `commands.ts` `outbox.ts` |
+| 命令式写入 | 每个写操作是一个带发生时间的命令（`lib/commands.ts`），经写入层（`lib/outbox.ts`）规划为 `/sync` 内容。在线时只向服务器取 `/state/summary`（编号计数 + 进行中的清运，几 KB）做冲突校验，提交后把结果合并进本机数据，不再前后各下载一次全量数据 | `commands.ts` `outbox.ts` |
+| 后台同步 | 写操作完成 1.5 秒后、App 回到前台时、以及每 5 分钟，静默刷新全量数据（不弹刷新转圈） | `store.tsx` `refreshQuietly` |
 | 余量与去向 | 车上余量、装载周期、收料去向（已卸/车上）与 web 控制台同一算法 | `lib/load.ts` |
 | 增量提交 | `POST /sync`，带 upserts / deletes / seq | `api.ts` `sync` |
 | 写前刷新 | 每次写操作先 `fresh()` 拉最新，再做"已占用/已完成"等校验，避免并发冲突 | `store.tsx` `fresh` |

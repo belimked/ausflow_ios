@@ -31,6 +31,9 @@ function setup(server: AppData = data()) {
       if (s.loseNextAnswer) { s.loseNextAnswer = false; throw offline() }
     },
     reload: async () => { guard() },
+    summary: async () => { guard(); return { seq: s.server.seq, ongoing: s.server.pickups.filter((p) => p.status === 'ongoing') } },
+    // The mock server already holds the payload (send applied it); the phone's copy is the server here.
+    apply: () => {},
     local: () => localView(s.server, s.queue),
     getQueue: () => s.queue,
     setQueue: (items) => { s.queue = items },

@@ -1,4 +1,4 @@
-import { ApiError, type SyncPayload } from './api'
+import { ApiError, type StateSummary, type SyncPayload } from './api'
 import { CommandError, planCommand, type Command } from './commands'
 import {
   alreadyApplied, applyPayload, createsRecord, dependsOn, isLocalId, newLocalId, planLocally, remapItem,
@@ -12,8 +12,12 @@ export interface NewPhoto { dataUrl: string; name: string }
 export interface OutboxDeps {
   // Latest server state. Throws ApiError with status 0 when the server cannot be reached.
   fresh: () => Promise<AppData>
+  // Id counters and pickups in progress; a fraction of /state.
+  summary: () => Promise<StateSummary>
   send: (payload: SyncPayload) => Promise<unknown>
   reload: () => Promise<unknown>
+  // Merge a payload the server accepted into the phone's copy (what /state would return for it).
+  apply: (payload: SyncPayload) => void
   // What the driver currently sees (server data + queue), or null when nothing was ever loaded.
   local: () => AppData | null
   getQueue: () => QueueItem[]
@@ -25,6 +29,12 @@ export interface OutboxDeps {
   now: () => string
   // A temporary id now has its real id (screens showing the temporary record can follow it).
   onSent?: (localId: string, realId: string) => void
+}
+
+// The phone's copy with the server's current id counters and pickups in progress.
+export function withSummary(view: AppData, s: StateSummary): AppData {
+  const ongoing = new Set(s.ongoing.map((p) => p.id))
+  return { ...view, seq: s.seq, pickups: [...s.ongoing, ...view.pickups.filter((p) => p.status !== 'ongoing' && !ongoing.has(p.id))] }
 }
 
 export const isOffline = (e: unknown) => e instanceof ApiError && e.status === 0
@@ -64,9 +74,12 @@ function enqueue<T>(deps: OutboxDeps, cmd: Command, photos?: { target: PhotoTarg
 export async function submit<T>(deps: OutboxDeps, cmd: Command, photos?: { target: PhotoTarget; files: NewPhoto[] }): Promise<{ result: T; queued: boolean }> {
   // Anything already waiting must reach the server first, in order.
   if (deps.getQueue().length) return enqueue<T>(deps, cmd, photos)
+  // Plan against the phone's copy, refreshed with the server's id counters and pickups in progress (the parts
+  // that decide ids and conflicts). The full /state is only downloaded when the phone has nothing yet.
+  const view = deps.local()
   let d: AppData
   try {
-    d = await deps.fresh()
+    d = view ? withSummary(view, await deps.summary()) : await deps.fresh()
   } catch (e) {
     if (isOffline(e)) return enqueue<T>(deps, cmd, photos)
     throw e
@@ -80,7 +93,7 @@ export async function submit<T>(deps: OutboxDeps, cmd: Command, photos?: { targe
       if (isOffline(e)) return enqueue<T>(deps, cmd, photos, plan.result)
       throw e
     }
-    await deps.reload().catch(() => {})
+    deps.apply(plan.sync)
   }
   const id = photoEntity(cmd, createsRecord(cmd) ? (plan.result as { id: string }).id : undefined)
   if (id && photos?.files.length) {

@@ -54,6 +54,11 @@ function locationFlags(distance: number | null, coords: Coords | null) {
 function readyToWork(d: AppData, deviceId: string, profile: WorkProfile) {
   const dev = d.devices.find((x) => x.id === deviceId)
   if (!dev) throw new CommandError('This device no longer exists.')
+  if (dev.companyId !== profile.companyId) {
+    throw new CommandError(dev.companyId
+      ? 'Not an authorised device: it is assigned to another transport company.'
+      : 'Not an authorised device: it is not assigned to any transport company. Contact the office.')
+  }
   if (d.pickups.some((p) => p.status === 'ongoing' && p.deviceId === deviceId)) {
     throw new CommandError('A pickup is already in progress at this device.')
   }

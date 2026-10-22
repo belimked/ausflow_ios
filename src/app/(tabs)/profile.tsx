@@ -45,7 +45,7 @@ export default function Profile() {
   const status = !online ? 'Offline' : syncing ? 'Sending…' : pending ? 'Waiting to send' : 'Up to date'
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ paddingBottom: 120 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 150 }}>
       <ScreenHeader title="Me" />
       <View style={{ paddingHorizontal: 16 }}>
         <Card style={s.user}>

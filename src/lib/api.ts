@@ -1,5 +1,5 @@
 import { API_BASE } from './config'
-import type { AppData, Photo, User } from './types'
+import type { AppData, Photo, Pickup, User } from './types'
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -45,6 +45,10 @@ export async function fetchState(token: string): Promise<AppData> {
     reportedIssues: d.reportedIssues || [],
   }
 }
+
+// Id counters and the pickups in progress: enough to plan a write without downloading everything.
+export interface StateSummary { seq: Record<string, number>; ongoing: Pickup[] }
+export const fetchSummary = (token: string) => request<StateSummary>('/state/summary', token)
 
 export interface SyncPayload { upserts: Record<string, unknown[]>; deletes?: Record<string, string[]>; seq: Record<string, number> }
 

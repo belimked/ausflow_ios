@@ -26,6 +26,7 @@ export default function Today() {
 
   const driver = profile ? ix.drivers.get(profile.driverId) : undefined
   const vehicle = profile ? ix.vehicles.get(profile.vehicleId) : undefined
+  const onBoard = vehicle ? Math.max(0, ix.loads.get(vehicle.id) || 0) : 0
   const company = profile ? ix.companies.get(profile.companyId) : undefined
   const firstName = (driver?.name || session?.user.displayName || '').replace(/\(.*?\)/g, '').trim().split(' ')[0]
 
@@ -59,7 +60,7 @@ export default function Today() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ paddingBottom: 32 }}
+      contentContainerStyle={{ paddingBottom: 140 }}
       contentInsetAdjustmentBehavior="never"
       refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor="#fff" />}>
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.hero, { paddingTop: insets.top + 16 }]}>
@@ -117,15 +118,16 @@ export default function Today() {
             <View style={s.scanIcon}><Icon name="qrcode.viewfinder" size={30} color="#fff" /></View>
             <View style={{ flex: 1 }}>
               <Text style={s.scanTitle}>Scan device QR</Text>
-              <Text style={s.scanSub}>{canWrite ? 'Start a pickup at a grease trap' : 'Your account is view-only'}</Text>
+              <Text style={s.scanSub}>{!canWrite ? 'Your account is view-only' : onBoard > 0 ? 'Start a pickup, or scan another truck to transfer your load' : 'Start a pickup at a grease trap'}</Text>
             </View>
             <Icon name="chevron.right" size={15} color={colors.faint} />
           </Pressable>
         )}
 
         {vehicle ? (
-          <OnBoard litres={Math.max(0, ix.loads.get(vehicle.id) || 0)} tank={vehicle.tank || 0} plate={vehicle.plate}
-            onPress={() => router.push('/vehicle')} onOffload={canWrite ? () => router.push('/offload') : undefined} />
+          <OnBoard litres={onBoard} tank={vehicle.tank || 0} plate={vehicle.plate}
+            onPress={() => router.push('/vehicle')} onOffload={canWrite ? () => router.push('/offload') : undefined}
+            onTransfer={canWrite ? () => router.push('/transfer') : undefined} />
         ) : null}
         {vehicle ? <TrailersCard /> : null}
 
@@ -156,7 +158,9 @@ export default function Today() {
 }
 
 // Waste on board the selected vehicle; red from 90 % of the tank, like the web console's load gauge.
-function OnBoard({ litres, tank, plate, onPress, onOffload }: { litres: number; tank: number; plate: string; onPress: () => void; onOffload?: () => void }) {
+function OnBoard({ litres, tank, plate, onPress, onOffload, onTransfer }: {
+  litres: number; tank: number; plate: string; onPress: () => void; onOffload?: () => void; onTransfer?: () => void
+}) {
   const pct = tank ? Math.min(1, litres / tank) : 0
   const full = tank > 0 && litres / tank >= 0.9
   return (
@@ -172,8 +176,12 @@ function OnBoard({ litres, tank, plate, onPress, onOffload }: { litres: number; 
           <View style={[s.barFill, { width: `${pct * 100}%`, backgroundColor: full ? colors.danger : colors.primaryBright }]} />
         </View>
       ) : null}
-      {onOffload && litres > 0 ? (
-        <Button testID="today-offload" title="Offload waste" kind="success" icon="arrow.down.to.line" size="md" onPress={onOffload} style={{ marginTop: 12 }} />
+      {onOffload && onTransfer && litres > 0 ? (
+        // The two places a load can go, equally visible: a facility, or another truck of the company.
+        <View style={s.loadActions}>
+          <Button testID="today-offload" title="Offload at facility" kind="success" icon="arrow.down.to.line" size="md" onPress={onOffload} style={{ flex: 1 }} />
+          <Button testID="today-transfer" title="Transfer to truck" kind="secondary" icon="arrow.left.arrow.right" size="md" onPress={onTransfer} style={{ flex: 1 }} />
+        </View>
       ) : null}
     </Card>
   )
@@ -181,6 +189,7 @@ function OnBoard({ litres, tank, plate, onPress, onOffload }: { litres: number; 
 
 const s = StyleSheet.create({
   load: { marginTop: 14, paddingVertical: 14 },
+  loadActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
   loadHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
   loadLabel: { flexShrink: 1, fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 0.6 },
   loadValue: { fontSize: 18, fontWeight: '800', color: colors.text },

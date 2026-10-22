@@ -23,6 +23,8 @@ describe('startPickup', () => {
   })
 
   it.each([
+    ['the device belongs to another company', data({ devices: [device({ companyId: 'CO0099' })] }), 'Not an authorised device: it is assigned to another transport company.'],
+    ['the device has no company', data({ devices: [device({ companyId: null })] }), 'Not an authorised device: it is not assigned to any transport company. Contact the office.'],
     ['the device is gone', data({ devices: [] }), 'This device no longer exists.'],
     ['the device is busy', data({ pickups: [pickup({ status: 'ongoing', driverId: 'DR0099' })] }), 'A pickup is already in progress at this device.'],
     ['the driver is busy', data({ pickups: [pickup({ status: 'ongoing', deviceId: 'DV0099' })] }), 'You already have a pickup in progress. Finish it before starting another.'],

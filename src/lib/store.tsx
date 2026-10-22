@@ -1,10 +1,11 @@
 import * as SecureStore from 'expo-secure-store'
 import { useNetworkState } from 'expo-network'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { AppState } from 'react-native'
 import * as api from './api'
 import { CommandError, type Command } from './commands'
 import { vehicleLoads } from './load'
-import { localView, type QueueItem, type SyncProblem } from './offline/queue'
+import { applyPayload, localView, type QueueItem, type SyncProblem } from './offline/queue'
 import * as storage from './offline/storage'
 import { PHOTO_TARGET } from './photos'
 import { flush, submit as submitCommand, type NewPhoto, type OutboxDeps, type PhotoTarget } from './outbox'
@@ -107,9 +108,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setProblemsState([])
   }, [])
 
-  // Throws the original error so callers can tell "offline" from other failures.
-  const fetchState = useCallback(async (s: Session) => {
-    setLoading(true)
+  // Throws the original error so callers can tell "offline" from other failures. `quiet` refreshes keep the
+  // pull-to-refresh spinners still (background sync).
+  const fetchState = useCallback(async (s: Session, quiet = false) => {
+    if (!quiet) setLoading(true)
     try {
       const d = await api.fetchState(s.token)
       setServerData(d)
@@ -127,11 +129,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       throw e
     } finally {
-      setLoading(false)
+      if (!quiet) setLoading(false)
     }
   }, [clear])
 
   const load = useCallback(async (s: Session) => fetchState(s).catch(() => null), [fetchState])
+
+  // Background sync: a quiet /state refresh, never more often than every 20 s.
+  const lastRefresh = useRef(0)
+  const refreshQuietly = useCallback(async (force = false) => {
+    const s = sessionRef.current
+    if (!s || (!force && Date.now() - lastRefresh.current < 20000)) return
+    lastRefresh.current = Date.now()
+    await fetchState(s, true).catch(() => {})
+  }, [fetchState])
 
   const deps = useCallback((): OutboxDeps => ({
     fresh: async () => {
@@ -139,12 +150,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!s) throw new api.ApiError('Not signed in', 401)
       return fetchState(s)
     },
+    summary: async () => {
+      const s = sessionRef.current
+      if (!s) throw new api.ApiError('Not signed in', 401)
+      return api.fetchSummary(s.token)
+    },
     send: async (payload) => {
       const s = sessionRef.current
       if (!s) throw new api.ApiError('Not signed in', 401)
       return api.sync(s.token, payload)
     },
     reload: async () => { if (sessionRef.current) await fetchState(sessionRef.current) },
+    apply: (payload) => setServerData((cur) => (cur ? applyPayload(cur, payload) : cur)),
     local: () => dataRef.current,
     getQueue: () => queueRef.current,
     setQueue,
@@ -210,6 +227,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (online && session) syncNow()
   }, [online, session, syncNow])
 
+  // Keep the phone's copy fresh in the background: when the app comes to the foreground and every 5 minutes.
+  useEffect(() => {
+    if (!session) return
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') refreshQuietly() })
+    const timer = setInterval(() => { if (AppState.currentState === 'active') refreshQuietly() }, 5 * 60000)
+    return () => { sub.remove(); clearInterval(timer) }
+  }, [session, refreshQuietly])
+
   const signIn = useCallback(async (username: string, password: string) => {
     const s = await api.login(username.trim(), password)
     await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(s))
@@ -246,8 +271,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const submit = useCallback(async <T,>(cmd: Command, photos?: { target: PhotoTarget; files: NewPhoto[] }) => {
     const r = await submitCommand<T>(deps(), cmd, photos)
     if (queueRef.current.length) syncNow()
+    // Pick up other drivers' changes without making this write wait for a full download.
+    else setTimeout(() => refreshQuietly(true), 1500)
     return r
-  }, [deps, syncNow])
+  }, [deps, syncNow, refreshQuietly])
 
   const retryProblem = useCallback((index: number) => {
     const p = problemsRef.current[index]
