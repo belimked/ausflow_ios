@@ -10,11 +10,14 @@ appId: com.ausflow
 - tapOn:
     id: "login-username"
 - inputText: ${E2E_USERNAME}
-# Tap the password field only once the keyboard has finished pushing the form up (an early tap misses).
-- waitForAnimationToEnd:
-    timeout: 3000
-- tapOn:
-    id: "login-password"
+# Never tap while the keyboard is up: the form moves and Maestro aims with a stale hierarchy. "Next" on the
+# username keyboard moves focus to the password field; type only once that field reports focus.
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "login-password"
+      focused: true
+    timeout: 5000
 - inputText: ${E2E_PASSWORD}
 # "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
 - pressKey: Enter
