@@ -19,14 +19,18 @@ tags:
     id: "login-username"
 - inputText: "e2e-no-such-user"
 # Never tap while the keyboard is up: the form moves and Maestro aims with a stale hierarchy. "Next" on the
-# username keyboard moves focus to the password field; type only once that field reports focus.
+# username keyboard moves focus to the password field. The iOS driver never reports `focused`, so give the focus
+# change a moment (an optional wait that always times out), then check nothing leaked into the username field.
 - pressKey: Enter
 - extendedWaitUntil:
-    visible:
-      id: "login-password"
-      focused: true
-    timeout: 5000
+    notVisible:
+      id: "login-username"
+    timeout: 1500
+    optional: true
 - inputText: "not-the-password"
+- assertVisible:
+    id: "login-username"
+    text: "^e2e-no-such-user$"
 # "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
 - pressKey: Enter
 - extendedWaitUntil:
