@@ -10,6 +10,11 @@ on:
       - '.maestro/**'
       - '.github/workflows/e2e.yml'
   workflow_dispatch:
+    inputs:
+      screenshots:
+        description: 'Only capture screenshots for the tester guide (.maestro/docs/screenshots.yaml)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -121,7 +126,7 @@ jobs:
 
       # Flows that need an account or write to UAT only run when their secrets/variables are configured.
       - name: Run functional tests
-        if: env.SKIP != 'true'
+        if: env.SKIP != 'true' && inputs.screenshots != true
         env:
           # The XCTest driver can take several minutes to start on a fresh hosted runner (default timeout is too short).
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 600000
@@ -154,6 +159,41 @@ jobs:
             -e E2E_USERNAME="$E2E_USERNAME" -e E2E_PASSWORD="$E2E_PASSWORD" \
             -e E2E_COMPANY="$E2E_COMPANY" -e E2E_DRIVER="${E2E_DRIVER:-__none__}" \
             -e E2E_PLATE="$E2E_PLATE" -e E2E_DEVICE="$E2E_DEVICE"
+
+      # Tester-guide screenshots: one flow that walks the screens; the PNGs are shrunk to JPEG for embedding.
+      - name: Capture screenshots for the tester guide
+        if: env.SKIP != 'true' && inputs.screenshots == true
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 600000
+          MAESTRO_CLI_NO_ANALYTICS: 1
+          E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          E2E_COMPANY: ${{ vars.E2E_COMPANY || 'E2E Transport' }}
+          E2E_DRIVER: ${{ vars.E2E_DRIVER || 'E2E Driver One' }}
+          E2E_PLATE: ${{ vars.E2E_PLATE || 'E2E 001' }}
+          E2E_DEVICE: ${{ vars.E2E_DEVICE || 'E2E-DEV-001' }}
+        run: |
+          mkdir -p shots
+          maestro --device "$UDID" test .maestro/docs/screenshots.yaml \
+            --debug-output "$RUNNER_TEMP/maestro-debug" --test-output-dir "$RUNNER_TEMP/maestro-debug" \
+            -e E2E_USERNAME="$E2E_USERNAME" -e E2E_PASSWORD="$E2E_PASSWORD" \
+            -e E2E_COMPANY="$E2E_COMPANY" -e E2E_DRIVER="$E2E_DRIVER" \
+            -e E2E_PLATE="$E2E_PLATE" -e E2E_DEVICE="$E2E_DEVICE"
+          ls -la shots
+          mkdir -p "$RUNNER_TEMP/shots-small"
+          for f in shots/*.png; do
+            sips -Z 1000 -s format jpeg -s formatOptions 82 "$f" --out "$RUNNER_TEMP/shots-small/$(basename "${f%.png}").jpg" > /dev/null
+          done
+          ls -la "$RUNNER_TEMP/shots-small"
+
+      - name: Upload tester-guide screenshots
+        if: always() && env.SKIP != 'true' && inputs.screenshots == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: tester-screenshots-${{ github.run_number }}
+          path: ${{ runner.temp }}/shots-small
+          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Upload test report and screenshots
         if: always() && env.SKIP != 'true'

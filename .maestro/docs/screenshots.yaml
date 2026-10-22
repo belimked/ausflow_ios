@@ -1,0 +1,226 @@
+appId: com.ausflow
+name: Screenshots for the tester guide
+tags:
+  - docs
+---
+# Walks the main screens on UAT and saves one screenshot per screen under shots/. Not part of the test runs: it is
+# started by hand (E2E workflow, "screenshots" input). It records one real pickup and one offload for the E2E
+# device, so UAT keeps a small amount of E2E-… data per run.
+- clearKeychain
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 30000
+- takeScreenshot: shots/01-login
+
+- runFlow: ../subflows/sign-in.yaml
+- takeScreenshot: shots/02-today-first
+
+# Driver & vehicle
+- tapOn:
+    id: "today-working-as"
+- extendedWaitUntil:
+    visible:
+      id: "setup-plate"
+    timeout: 10000
+- takeScreenshot: shots/03-setup
+- tapOn:
+    id: "setup-plate"
+- inputText: ${E2E_PLATE}
+- tapOn:
+    id: "setup-plate-match"
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 3000
+- scrollUntilVisible:
+    element: ".*${E2E_DRIVER}.*"
+    direction: DOWN
+    centerElement: true
+- tapOn: ".*${E2E_DRIVER}.*"
+- tapOn:
+    id: "setup-save"
+- extendedWaitUntil:
+    visible:
+      id: "today-on-board"
+    timeout: 15000
+- takeScreenshot: shots/04-today
+
+# Devices and a device
+- tapOn: "Devices"
+- extendedWaitUntil:
+    visible: "Name, address, ref or QR code"
+    timeout: 10000
+- takeScreenshot: shots/05-devices
+- tapOn: "Name, address, ref or QR code"
+- inputText: ${E2E_DEVICE}
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: ".*${E2E_DEVICE} · .*"
+- extendedWaitUntil:
+    visible:
+      id: "device-start"
+    timeout: 15000
+- takeScreenshot: shots/06-device
+- scrollUntilVisible:
+    element:
+      id: "device-report-issue"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "device-report-issue"
+- extendedWaitUntil:
+    visible: "What's the problem\\?"
+    timeout: 10000
+- tapOn:
+    id: "issue-no_access"
+- takeScreenshot: shots/07-issue
+# Close the sheet (swipe down from its top) and go back to the list.
+- swipe:
+    start: 50%, 12%
+    end: 50%, 90%
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Back"
+
+# Scan, start and finish a pickup
+- tapOn: "Today"
+- tapOn:
+    id: "today-scan"
+- extendedWaitUntil:
+    visible: "Camera access needed|Enter code manually"
+    timeout: 10000
+- takeScreenshot: shots/08-scan
+- runFlow:
+    when:
+      visible: "Enter code instead"
+    commands:
+      - tapOn: "Enter code instead"
+- runFlow:
+    when:
+      visible:
+        id: "scan-manual"
+    commands:
+      - tapOn:
+          id: "scan-manual"
+- tapOn:
+    id: "scan-code"
+- inputText: ${E2E_DEVICE}
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "device-start"
+    timeout: 20000
+- tapOn:
+    id: "device-start"
+- runFlow:
+    when:
+      visible: "Allow While Using App"
+    commands:
+      - tapOn: "Allow While Using App"
+- extendedWaitUntil:
+    visible: "IN PROGRESS.*"
+    timeout: 30000
+- tapOn: "25%"
+- takeScreenshot: shots/09-finish
+- scrollUntilVisible:
+    element: "Photos \\(optional\\)"
+    direction: DOWN
+    centerElement: true
+- takeScreenshot: shots/10-finish-more
+- tapOn: "Complete · .*"
+- extendedWaitUntil:
+    visible: "Pickup completed"
+    timeout: 30000
+- takeScreenshot: shots/11-pickup-done
+- tapOn: "Back to Today"
+- extendedWaitUntil:
+    visible:
+      id: "today-offload"
+    timeout: 15000
+- takeScreenshot: shots/12-today-loaded
+
+# On board, transfer (not submitted), offload
+- tapOn:
+    id: "today-on-board"
+- extendedWaitUntil:
+    visible: "Pickups on board · .*"
+    timeout: 10000
+- takeScreenshot: shots/13-onboard
+- tapOn:
+    id: "vehicle-transfer"
+- extendedWaitUntil:
+    visible:
+      id: "transfer-scan"
+    timeout: 10000
+- tapOn: ".*E2E 002.*"
+- extendedWaitUntil:
+    visible:
+      id: "transfer-to"
+    timeout: 10000
+- takeScreenshot: shots/14-transfer
+- tapOn: "Back"
+- extendedWaitUntil:
+    visible:
+      id: "vehicle-offload"
+    timeout: 10000
+- tapOn:
+    id: "vehicle-offload"
+- extendedWaitUntil:
+    visible:
+      id: "offload-scan-plate"
+    timeout: 10000
+- takeScreenshot: shots/15-offload
+- tapOn: ".*E2E Treatment Plant.*"
+- extendedWaitUntil:
+    visible:
+      id: "offload-facility"
+    timeout: 10000
+- takeScreenshot: shots/16-offload-ready
+- tapOn:
+    id: "offload-submit"
+- extendedWaitUntil:
+    visible: "Delivery completed"
+    timeout: 30000
+- takeScreenshot: shots/17-delivered
+- tapOn: "Back to Today"
+- extendedWaitUntil:
+    visible:
+      id: "today-on-board"
+    timeout: 15000
+
+# Demo trailers
+- scrollUntilVisible:
+    element:
+      id: "trailer-attach"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "trailer-attach"
+- tapOn: "TL \\d{3} · .*"
+- extendedWaitUntil:
+    visible:
+      id: "trailer-attached"
+    timeout: 5000
+- takeScreenshot: shots/18-trailers
+
+# History, Me, My details
+- tapOn: "History"
+- extendedWaitUntil:
+    visible: ".*Offloads.*"
+    timeout: 10000
+- takeScreenshot: shots/19-history
+- tapOn: "Me"
+- extendedWaitUntil:
+    visible: ".*My details.*"
+    timeout: 10000
+- takeScreenshot: shots/20-me
+- tapOn:
+    id: "my-details"
+- extendedWaitUntil:
+    visible:
+      id: "details-save"
+    timeout: 10000
+- takeScreenshot: shots/21-details
