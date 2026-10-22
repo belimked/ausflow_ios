@@ -86,7 +86,7 @@
 | 作业身份卡 | 显示当前司机·车牌·公司，点按进入 Setup | `index.tsx` |
 | 扫码入口 | 大按钮；未设身份则先去 Setup；只读账号禁用 | `index.tsx` |
 | 进行中清运卡 | 若本司机有进行中清运：显示设备、已用时（实时计时）、"完成清运"按钮 | `index.tsx` + `useNow` |
-| 车上余量 | 当前车辆余量 / 罐容量进度条，≥90% 标红；点按进入车载清单；有余量时显示"卸料" | `index.tsx` `OnBoard` |
+| 车上余量 | 当前车辆余量 / 罐容量进度条，≥90% 标红；点按进入车载清单；有余量时并排显示 "Offload at facility" 和 "Transfer to truck" 两个按钮；扫码提示同时提醒可扫另一台车转料 | `index.tsx` `OnBoard` |
 | 统计三联 | 今日完成数、今日收集总量(L)、逾期设备数 | `index.tsx` `Stat` |
 | Due next | 即将到期的前 5 台设备（排除进行中） | `index.tsx` |
 | Completed today | 今日已完成清运列表 | `index.tsx` |
@@ -162,7 +162,7 @@
 |---|---|---|
 | 卸料 (Offload) | 扫设施牌或选附近设施（按距离）→ 确认车辆（可换）→ 交付量（默认车上余量，可改；与余量相差 >10% 提醒）→ 废物类型（默认车上占比最大的）→ 写 `unloads`（`UL…`，记录实际 GPS）；成功页显示车上剩余 | `src/app/offload.tsx`、`commands.ts` `planUnload`、`lib/delivery.ts` |
 | 设施位置提醒 | 当前位置距设施 >200m 时提醒 | `offload.tsx` |
-| 转料 (Transfer All Waste) | 扫目标车贴纸或选本公司其他车 → 显示两车转后载量 → 整车余量全部转出，写 `transfers`（`TR…`）；超过目标车罐容量时警告并二次确认；只能转给本公司车辆 | `src/app/transfer.tsx`、`commands.ts` `planTransfer` |
+| 转料 (Transfer All Waste) | 入口：首页余量卡片 / 车载清单的 "Transfer to truck"，或车上有料时扫另一台车的贴纸。页面说明用途（小车倒进大罐车），接收车列表大车优先并标注车型与罐容量；扫目标车贴纸或选本公司其他车 → 显示两车转后载量 → 整车余量全部转出，写 `transfers`（`TR…`）；超过目标车罐容量时警告并二次确认；只能转给本公司车辆 | `src/app/transfer.tsx`、`commands.ts` `planTransfer` |
 | 车载清单 (Show) | 当前装载周期内的收料和转入，起始时间；可去卸料 / 转料 | `src/app/vehicle.tsx`、`lib/load.ts` `currentCycle` |
 | 收料去向 | 清运详情显示"已送到某设施（时间）"或"仍在某车上" | `job/[id].tsx`、`lib/load.ts` `pickupDelivery` |
 | 规则 | 有进行中清运时不能卸料/转料 | `commands.ts` `readyToMoveLoad` |

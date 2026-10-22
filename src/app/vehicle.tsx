@@ -57,8 +57,10 @@ export default function VehicleLoad() {
       </ScrollView>
       {canWrite && load > 0 ? (
         <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
-          <Button testID="vehicle-offload" title="Offload at a facility" kind="success" icon="arrow.down.to.line" onPress={() => router.push('/offload')} />
-          <Button testID="vehicle-transfer" title="Transfer to another vehicle" kind="ghost" size="md" icon="arrow.left.arrow.right" onPress={() => router.push('/transfer')} style={{ marginTop: 4 }} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button testID="vehicle-offload" title="Offload at facility" kind="success" icon="arrow.down.to.line" onPress={() => router.push('/offload')} style={{ flex: 1 }} />
+            <Button testID="vehicle-transfer" title="Transfer to truck" kind="secondary" icon="arrow.left.arrow.right" onPress={() => router.push('/transfer')} style={{ flex: 1 }} />
+          </View>
         </View>
       ) : null}
     </View>

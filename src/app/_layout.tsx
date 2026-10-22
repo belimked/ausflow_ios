@@ -36,7 +36,7 @@ function RootStack() {
         <Stack.Screen name="job/[id]" options={{ title: 'Pickup' }} />
         <Stack.Screen name="issue/[deviceId]" options={{ title: 'Report a problem', presentation: 'modal' }} />
         <Stack.Screen name="offload" options={{ title: 'Offload waste' }} />
-        <Stack.Screen name="transfer" options={{ title: 'Transfer waste' }} />
+        <Stack.Screen name="transfer" options={{ title: 'Transfer to another truck' }} />
         <Stack.Screen name="vehicle" options={{ title: 'On board' }} />
         <Stack.Screen name="details" options={{ title: 'My details', presentation: 'modal' }} />
       </Stack.Protected>

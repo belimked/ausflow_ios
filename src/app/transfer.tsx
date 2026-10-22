@@ -32,7 +32,9 @@ export default function TransferScreen() {
   const to = toId ? ix.vehicles.get(toId) : undefined
   const toLoad = to ? Math.max(0, ix.loads.get(to.id) || 0) : 0
   const over = !!to && overCapacity(toLoad, load, to.tank)
+  // Loads mostly move from a small truck into the big tanker, so large trucks (then bigger tanks) come first.
   const others = (data?.vehicles || []).filter((v) => v.companyId === profile.companyId && v.status === 'active' && v.id !== from.id)
+    .sort((a, b) => Number(b.type === 'large') - Number(a.type === 'large') || (b.tank || 0) - (a.tank || 0))
 
   async function go() {
     if (!to) return
@@ -61,6 +63,11 @@ export default function TransferScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }}>
+        <Text style={s.intro}>
+          Move the whole load from this truck into another truck of your company, for example from a small truck into the big tanker.
+          Scan the other truck's sticker or pick it from the list.
+        </Text>
+
         <SectionTitle title="From" />
         <Card style={s.group}>
           <Row icon="truck.box.fill" title={from.plate} subtitle={`${fmtL(load)} on board · all of it will be transferred`} />
@@ -109,7 +116,7 @@ export default function TransferScreen() {
   )
 }
 
-const vehicleLine = (v: Vehicle, load: number) => `${fmtL(load)} on board${v.tank ? ` · ${fmtL(v.tank)} tank` : ''}`
+const vehicleLine = (v: Vehicle, load: number) => `${v.type === 'large' ? 'Large truck' : 'Small truck'} · ${fmtL(load)} on board${v.tank ? ` · ${fmtL(v.tank)} tank` : ''}`
 
 function Transferred({ transfer: t }: { transfer: Transfer }) {
   const router = useRouter()
@@ -130,6 +137,7 @@ function Transferred({ transfer: t }: { transfer: Transfer }) {
 }
 
 const s = StyleSheet.create({
+  intro: { fontSize: 15, color: colors.muted, lineHeight: 21, paddingHorizontal: 4 },
   group: { padding: 0, overflow: 'hidden' },
   link: { color: colors.primary, fontSize: 15, fontWeight: '600' },
   summary: { marginTop: 16, gap: 4, borderWidth: 2, borderColor: 'transparent' },
