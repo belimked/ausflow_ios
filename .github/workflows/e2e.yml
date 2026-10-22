@@ -88,12 +88,14 @@ jobs:
       # Tells "app broken" apart from "UAT unreachable from the runner" when a flow fails.
       # A flow that failed half-way can leave the E2E driver with a pickup in progress, which blocks the next run.
       - name: Remove leftover E2E pickups on UAT
-        if: env.SKIP != 'true' && env.E2E_READY == 'true'
+        if: env.SKIP != 'true'
         env:
           E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           E2E_READY: ${{ vars.E2E_READY || secrets.E2E_READY }}
         run: |
+          # (secrets are not available in a step's `if`, so the readiness check lives here)
+          [ "$E2E_READY" = true ] && [ -n "$E2E_USERNAME" ] || { echo "E2E account not enabled; nothing to clean up"; exit 0; }
           API=https://uat.ausflow.saulxj.ggff.net/api
           TOKEN=$(curl -sS -m 30 -X POST -H 'Content-Type: application/json' \
             -d "{\"username\":\"$E2E_USERNAME\",\"password\":\"$E2E_PASSWORD\"}" "$API/login" | jq -r '.token // empty')
