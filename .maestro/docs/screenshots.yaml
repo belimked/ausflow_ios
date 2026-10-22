@@ -83,7 +83,9 @@ tags:
     duration: 400
 - waitForAnimationToEnd:
     timeout: 3000
-- tapOn: "Back"
+# Stack header back button (its label is the previous route name, so match the id).
+- tapOn:
+    id: "BackButton"
 
 # Scan, start and finish a pickup
 - tapOn: "Today"
@@ -161,7 +163,9 @@ tags:
       id: "transfer-to"
     timeout: 10000
 - takeScreenshot: shots/14-transfer
-- tapOn: "Back"
+# Stack header back button (its label is the previous route name, so match the id).
+- tapOn:
+    id: "BackButton"
 - extendedWaitUntil:
     visible:
       id: "vehicle-offload"

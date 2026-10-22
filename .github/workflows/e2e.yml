@@ -173,18 +173,20 @@ jobs:
           E2E_PLATE: ${{ vars.E2E_PLATE || 'E2E 001' }}
           E2E_DEVICE: ${{ vars.E2E_DEVICE || 'E2E-DEV-001' }}
         run: |
-          mkdir -p shots
+          mkdir -p shots "$RUNNER_TEMP/shots-small"
+          STATUS=0
           maestro --device "$UDID" test .maestro/docs/screenshots.yaml \
             --debug-output "$RUNNER_TEMP/maestro-debug" --test-output-dir "$RUNNER_TEMP/maestro-debug" \
             -e E2E_USERNAME="$E2E_USERNAME" -e E2E_PASSWORD="$E2E_PASSWORD" \
             -e E2E_COMPANY="$E2E_COMPANY" -e E2E_DRIVER="$E2E_DRIVER" \
-            -e E2E_PLATE="$E2E_PLATE" -e E2E_DEVICE="$E2E_DEVICE"
+            -e E2E_PLATE="$E2E_PLATE" -e E2E_DEVICE="$E2E_DEVICE" || STATUS=$?
+          # Keep whatever was captured even when a later step of the flow failed.
           ls -la shots
-          mkdir -p "$RUNNER_TEMP/shots-small"
           for f in shots/*.png; do
-            sips -Z 1000 -s format jpeg -s formatOptions 82 "$f" --out "$RUNNER_TEMP/shots-small/$(basename "${f%.png}").jpg" > /dev/null
+            [ -f "$f" ] && sips -Z 1000 -s format jpeg -s formatOptions 82 "$f" --out "$RUNNER_TEMP/shots-small/$(basename "${f%.png}").jpg" > /dev/null
           done
           ls -la "$RUNNER_TEMP/shots-small"
+          exit $STATUS
 
       - name: Upload tester-guide screenshots
         if: always() && env.SKIP != 'true' && inputs.screenshots == true
