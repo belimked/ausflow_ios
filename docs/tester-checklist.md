@@ -1,4 +1,4 @@
-# AusFlow iOS 1.1.1 · 真机测试清单 / Device test checklist
+# AusFlow iOS 1.1.2 · 真机测试清单 / Device test checklist
 
 安装页 / Install page: <https://belimked.github.io/ausflow_ios/> · 连接 **UAT**，数据不会进生产 / talks to **UAT**, nothing reaches production.
 
