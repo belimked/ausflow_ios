@@ -1,0 +1,14 @@
+appId: com.ausflow
+---
+# One attempt at dismissing the "Save Password?" sheet: let it settle (~1.5 s), tap, give it a moment to go.
+- extendedWaitUntil:
+    notVisible: "Not Now"
+    timeout: 1500
+    optional: true
+- tapOn:
+    text: "Not Now"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible: "Not Now"
+    timeout: 3000
+    optional: true
