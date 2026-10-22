@@ -125,7 +125,8 @@ tags:
 - extendedWaitUntil:
     visible: "IN PROGRESS.*"
     timeout: 30000
-- tapOn: "25%"
+# Preset chips read "25%, 250" (label plus litres).
+- tapOn: "25%.*"
 - takeScreenshot: shots/09-finish
 - scrollUntilVisible:
     element: "Photos \\(optional\\)"
