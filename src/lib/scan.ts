@@ -15,7 +15,7 @@ export type ScanAction =
 
 const WHAT: Record<ScanMode, string> = { any: 'device, vehicle or facility', vehicle: 'vehicle', facility: 'facility', transfer: 'vehicle' }
 
-export function scanAction(hit: Scanned | null, raw: string, mode: ScanMode, ctx: { vehicleId?: string | null; onBoard: number }): ScanAction {
+export function scanAction(hit: Scanned | null, raw: string, mode: ScanMode, ctx: { vehicleId?: string | null; onBoard: number; companyId?: string | null }): ScanAction {
   if (!hit) return { problem: `No ${WHAT[mode]} found for “${codeOf(raw) || raw.trim()}”` }
   switch (mode) {
     case 'vehicle':
@@ -27,7 +27,13 @@ export function scanAction(hit: Scanned | null, raw: string, mode: ScanMode, ctx
       if (hit.item.id === ctx.vehicleId) return { problem: 'That is your own vehicle. Scan the vehicle receiving the waste.' }
       return { go: 'transfer', vehicleId: hit.item.id }
     case 'any':
-      if (hit.kind === 'device') return { go: 'device', id: hit.item.id }
+      if (hit.kind === 'device') {
+        // Old WasteID: only devices of the driver's own transport company may be scanned.
+        if (ctx.companyId && hit.item.companyId !== ctx.companyId) {
+          return { problem: `Not an authorised device: ${hit.item.ref} is not assigned to your transport company.` }
+        }
+        return { go: 'device', id: hit.item.id }
+      }
       if (hit.kind === 'facility') return { go: 'offload', facilityId: hit.item.id }
       if (ctx.onBoard > 0 && ctx.vehicleId && hit.item.id !== ctx.vehicleId) return { go: 'joinOrTransfer', vehicleId: hit.item.id }
       return { go: 'join', vehicleId: hit.item.id }

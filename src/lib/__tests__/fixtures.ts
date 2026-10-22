@@ -4,7 +4,7 @@ export const profile: WorkProfile = { companyId: 'CO0001', driverId: 'DR0001', v
 
 export const device = (over: Partial<Device> = {}): Device => ({
   id: 'DV0001', ref: 'DV539135', status: 'Active', waste: 'Grease Trap Waste', qr: 'ABC123', tags: 'T1 T2',
-  capacity: 1000, lat: -34.9285, lng: 138.6007, freqWeeks: 4, lastService: '2026-09-01T00:00:00.000Z', locationId: 'LO0001',
+  capacity: 1000, lat: -34.9285, lng: 138.6007, freqWeeks: 4, lastService: '2026-09-01T00:00:00.000Z', locationId: 'LO0001', companyId: 'CO0001',
   ...over,
 })
 

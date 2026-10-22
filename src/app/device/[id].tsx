@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DueBadge, JobRow } from '@/components/items'
@@ -20,8 +20,16 @@ export default function DeviceScreen() {
   const ix = useIndex()
   const [here, setHere] = useState<Coords | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  // A precise fix is requested as soon as the page opens, so Start pickup does not wait for GPS.
+  const fix = useRef<{ promise: Promise<Coords | null>; at: number } | null>(null)
 
-  useEffect(() => { quietCoords().then(setHere) }, [])
+  useEffect(() => {
+    quietCoords().then((c) => { if (c) setHere((h) => h || c) })
+    fix.current = { promise: currentCoords().then((c) => { if (c) setHere(c); return c }), at: Date.now() }
+  }, [])
+
+  // The prefetched fix when it is recent, otherwise a new one.
+  const locate = useCallback(() => (fix.current && Date.now() - fix.current.at < 90000 ? fix.current.promise : currentCoords()), [])
 
   const dev = ix.devices.get(id)
   const loc = dev?.locationId ? ix.locations.get(dev.locationId) : undefined
@@ -50,7 +58,7 @@ export default function DeviceScreen() {
     }
     try {
       setBusy('Getting your location…')
-      const coords = await currentCoords()
+      const coords = await locate()
       setBusy('Starting pickup…')
       const p = await startJob(dev.id, coords)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -72,7 +80,7 @@ export default function DeviceScreen() {
           if (!dev) return
           try {
             setBusy('Getting your location…')
-            const coords = await currentCoords()
+            const coords = await locate()
             setBusy('Saving…')
             const p = await serviceOnly(dev.id, { note: note || '', coords })
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -94,8 +102,12 @@ export default function DeviceScreen() {
     Linking.openURL(`maps://?daddr=${dev.lat},${dev.lng}&q=${q}`)
   }
 
+  // Only devices assigned to the driver's transport company may be worked on (old WasteID "not authorised").
+  const authorised = !profile || dev.companyId === profile.companyId
   let action: React.ReactNode = null
-  if (canWrite) {
+  if (canWrite && !authorised) {
+    action = <Button title="Not an authorised device" kind="secondary" icon="lock.fill" disabled onPress={() => {}} />
+  } else if (canWrite) {
     if (ongoing && profile && ongoing.driverId === profile.driverId) {
       action = <Button title="Finish pickup" kind="success" icon="checkmark.circle.fill" onPress={() => router.push(`/job/${ongoing.id}`)} />
     } else if (ongoing) {
@@ -134,6 +146,15 @@ export default function DeviceScreen() {
           </View>
         </Card>
 
+        {!authorised ? (
+          <View style={[s.banner, { backgroundColor: toneColor('danger').bg }]}>
+            <Icon name="lock.fill" size={20} color={toneColor('danger').fg} />
+            <View style={{ flex: 1 }}>
+              <Text style={[s.bannerTitle, { color: toneColor('danger').fg }]}>Not an authorised device</Text>
+              <Text style={s.bannerSub}>{dev.companyId ? `Assigned to ${company?.name || 'another transport company'}, not to yours.` : 'Not assigned to any transport company. Contact the office.'}</Text>
+            </View>
+          </View>
+        ) : null}
         <View style={[s.banner, { backgroundColor: toneColor(banner[due.state]).bg }]}>
           <Icon name={due.state === 'overdue' ? 'exclamationmark.triangle.fill' : 'calendar'} size={20} color={toneColor(banner[due.state]).fg} />
           <View style={{ flex: 1 }}>

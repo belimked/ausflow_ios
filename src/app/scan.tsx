@@ -39,7 +39,7 @@ export default function Scan() {
     if (locked.current || !data) return
     locked.current = true
     const onBoard = profile ? ix.loads.get(profile.vehicleId) || 0 : 0
-    const action = scanAction(resolveCode(data, raw), raw, mode, { vehicleId: profile?.vehicleId, onBoard })
+    const action = scanAction(resolveCode(data, raw), raw, mode, { vehicleId: profile?.vehicleId, onBoard, companyId: profile?.companyId })
     if ('problem' in action) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setProblem(action.problem)
