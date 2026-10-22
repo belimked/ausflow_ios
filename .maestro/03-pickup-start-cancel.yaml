@@ -1,0 +1,60 @@
+appId: com.ausflow
+name: Choose driver and vehicle, find a device by code, start a pickup and cancel it
+tags:
+  - auth
+  - data
+  - write
+---
+# Cancelling deletes the pickup, so the run leaves no pickup behind on UAT.
+- runFlow: subflows/sign-in.yaml
+- runFlow: subflows/join-by-plate.yaml
+
+- tapOn:
+    id: "today-scan"
+# The simulator has no camera; use manual entry from whichever screen shows up.
+- runFlow:
+    when:
+      visible: "Enter code instead"
+    commands:
+      - tapOn: "Enter code instead"
+- runFlow:
+    when:
+      visible:
+        id: "scan-manual"
+    commands:
+      - tapOn:
+          id: "scan-manual"
+- tapOn:
+    id: "scan-code"
+- inputText: ${E2E_DEVICE}
+- pressKey: Enter
+
+- extendedWaitUntil:
+    visible:
+      id: "device-start"
+    timeout: 20000
+- tapOn:
+    id: "device-start"
+- runFlow:
+    when:
+      visible: "Allow While Using App"
+    commands:
+      - tapOn: "Allow While Using App"
+- extendedWaitUntil:
+    visible: "IN PROGRESS.*"
+    timeout: 30000
+
+- scrollUntilVisible:
+    element:
+      id: "job-cancel"
+    direction: DOWN
+- tapOn:
+    id: "job-cancel"
+- assertVisible: "Cancel this pickup\\?"
+- tapOn:
+    text: "Cancel pickup"
+    index: 1
+- extendedWaitUntil:
+    visible:
+      id: "device-start"
+    timeout: 30000

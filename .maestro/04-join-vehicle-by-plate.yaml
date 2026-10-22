@@ -1,0 +1,15 @@
+appId: com.ausflow
+name: Join a vehicle by searching its registration and open its on-board list
+tags:
+  - auth
+  - data
+---
+# Only the local driver/vehicle profile changes; nothing is written to UAT.
+- runFlow: subflows/sign-in.yaml
+- runFlow: subflows/join-by-plate.yaml
+# Phase 3: the on-board card opens the vehicle's load list (old WasteID "Show").
+- tapOn:
+    id: "today-on-board"
+- extendedWaitUntil:
+    visible: "Pickups on board · .*"
+    timeout: 10000

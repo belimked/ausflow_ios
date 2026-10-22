@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar'
 import { ActivityIndicator, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { StoreProvider, useStore } from '@/lib/store'
+import { TrailerProvider } from '@/lib/trailers'
 import { colors } from '@/lib/theme'
 
 function RootStack() {
@@ -33,6 +34,11 @@ function RootStack() {
         <Stack.Screen name="setup" options={{ title: 'Driver & vehicle', presentation: 'modal' }} />
         <Stack.Screen name="device/[id]" options={{ title: 'Device' }} />
         <Stack.Screen name="job/[id]" options={{ title: 'Pickup' }} />
+        <Stack.Screen name="issue/[deviceId]" options={{ title: 'Report a problem', presentation: 'modal' }} />
+        <Stack.Screen name="offload" options={{ title: 'Offload waste' }} />
+        <Stack.Screen name="transfer" options={{ title: 'Transfer waste' }} />
+        <Stack.Screen name="vehicle" options={{ title: 'On board' }} />
+        <Stack.Screen name="details" options={{ title: 'My details', presentation: 'modal' }} />
       </Stack.Protected>
     </Stack>
   )
@@ -42,8 +48,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
-        <StatusBar style="dark" />
-        <RootStack />
+        <TrailerProvider>
+          <StatusBar style="dark" />
+          <RootStack />
+        </TrailerProvider>
       </StoreProvider>
     </SafeAreaProvider>
   )

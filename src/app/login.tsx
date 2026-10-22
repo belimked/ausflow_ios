@@ -1,11 +1,15 @@
 import { LinearGradient } from 'expo-linear-gradient'
-import { useState } from 'react'
-import { Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import * as SecureStore from 'expo-secure-store'
+import { useEffect, useRef, useState, type ComponentRef } from 'react'
+import { Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Icon } from '@/components/ui'
+import { forgotPassword } from '@/lib/api'
 import { ENV_LABEL } from '@/lib/config'
 import { useStore } from '@/lib/store'
 import { colors, gradient, radius, shadow } from '@/lib/theme'
+
+const REMEMBER_KEY = 'remember_username'
 
 export default function Login() {
   const { signIn, error: storeError } = useStore()
@@ -15,6 +19,14 @@ export default function Login() {
   const [show, setShow] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Old WasteID "Remember Me": keep the username (never the password) for the next sign-in.
+  const [remember, setRemember] = useState(true)
+  // "Next" on the username keyboard moves to the password field.
+  const passwordRef = useRef<ComponentRef<typeof TextInput>>(null)
+
+  useEffect(() => {
+    SecureStore.getItemAsync(REMEMBER_KEY).catch(() => null).then((u) => { if (u) setUsername((cur) => cur || u) })
+  }, [])
 
   async function submit() {
     if (!username.trim() || !password) return setError('Enter your username and password.')
@@ -22,11 +34,31 @@ export default function Login() {
     setError(null)
     try {
       await signIn(username, password)
+      if (remember) await SecureStore.setItemAsync(REMEMBER_KEY, username.trim()).catch(() => {})
+      else await SecureStore.deleteItemAsync(REMEMBER_KEY).catch(() => {})
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setBusy(false)
     }
+  }
+
+  // Old WasteID "Forgot Password?": the reset link is emailed and opened in the browser, then sign in here.
+  function forgot() {
+    Alert.prompt('Reset password', 'Enter your username or email address. A reset link will be sent to the email address on your account.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Send link', onPress: async (login?: string) => {
+          if (!login?.trim()) return
+          try {
+            await forgotPassword(login.trim())
+            Alert.alert('Check your email', 'If that account has an email address, a reset link is on its way. It works once, for one hour.')
+          } catch (e) {
+            Alert.alert('Could not send the link', (e as Error).message)
+          }
+        },
+      },
+    ], 'plain-text', username.trim())
   }
 
   const message = error || storeError
@@ -51,8 +83,9 @@ export default function Login() {
           <View style={s.field}>
             <Icon name="person" size={17} color={colors.faint} />
             <TextInput
-              value={username} onChangeText={setUsername} placeholder="e.g. ops01" placeholderTextColor={colors.faint}
+              testID="login-username" value={username} onChangeText={setUsername} placeholder="e.g. ops01" placeholderTextColor={colors.faint}
               autoCapitalize="none" autoCorrect={false} textContentType="username" returnKeyType="next" style={s.input}
+              submitBehavior="submit" onSubmitEditing={() => passwordRef.current?.focus()}
             />
           </View>
 
@@ -60,12 +93,17 @@ export default function Login() {
           <View style={s.field}>
             <Icon name="lock" size={17} color={colors.faint} />
             <TextInput
-              value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={colors.faint}
-              secureTextEntry={!show} textContentType="password" returnKeyType="go" onSubmitEditing={submit} style={s.input}
+              testID="login-password" value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={colors.faint}
+              ref={passwordRef} secureTextEntry={!show} textContentType="password" returnKeyType="go" onSubmitEditing={submit} style={s.input}
             />
             <Pressable hitSlop={10} onPress={() => setShow((v) => !v)}>
               <Icon name={show ? 'eye.slash' : 'eye'} size={17} color={colors.muted} />
             </Pressable>
+          </View>
+
+          <View style={s.remember}>
+            <Text style={s.rememberText}>Remember my username</Text>
+            <Switch testID="login-remember" value={remember} onValueChange={setRemember} trackColor={{ true: colors.primary }} />
           </View>
 
           {message ? (
@@ -75,7 +113,10 @@ export default function Login() {
             </View>
           ) : null}
 
-          <Button title="Sign in" icon="arrow.right" onPress={submit} loading={busy} style={{ marginTop: 20 }} />
+          <Button testID="login-submit" title="Sign in" icon="arrow.right" onPress={submit} loading={busy} style={{ marginTop: 20 }} />
+          <Pressable testID="login-forgot" onPress={forgot} hitSlop={8} style={s.forgot}>
+            <Text style={s.forgotText}>Forgot password?</Text>
+          </Pressable>
         </View>
 
         <Text style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>Use the same account as the AusFlow web console.</Text>
@@ -97,6 +138,10 @@ const s = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700', color: colors.muted, marginTop: 14, marginBottom: 6 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, borderRadius: radius.md, backgroundColor: colors.bg, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border },
   input: { flex: 1, fontSize: 17, color: colors.text, height: '100%' },
+  forgot: { alignSelf: 'center', marginTop: 14 },
+  forgotText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
+  remember: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
+  rememberText: { fontSize: 15, color: colors.text },
   error: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 14, padding: 12, borderRadius: radius.sm, backgroundColor: colors.dangerSoft },
   errorText: { flex: 1, color: colors.danger, fontSize: 14, fontWeight: '600' },
   footer: { textAlign: 'center', color: colors.faint, fontSize: 13, marginTop: 'auto', paddingTop: 24 },

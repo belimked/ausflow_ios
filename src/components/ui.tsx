@@ -31,19 +31,19 @@ export function Pill({ label, tone = 'neutral', icon }: { label: string; tone?: 
   )
 }
 
-export function Card({ children, style, onPress }: { children: ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }) {
-  if (!onPress) return <View style={[styles.card, style]}>{children}</View>
+export function Card({ children, style, onPress, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void; testID?: string }) {
+  if (!onPress) return <View testID={testID} style={[styles.card, style]}>{children}</View>
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, style, pressed && styles.pressed]}>
+    <Pressable testID={testID} onPress={onPress} style={({ pressed }) => [styles.card, style, pressed && styles.pressed]}>
       {children}
     </Pressable>
   )
 }
 
 type ButtonKind = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success'
-export function Button({ title, onPress, kind = 'primary', icon, loading, disabled, style, size = 'lg' }: {
+export function Button({ title, onPress, kind = 'primary', icon, loading, disabled, style, size = 'lg', testID }: {
   title: string; onPress: () => void; kind?: ButtonKind; icon?: SfName; loading?: boolean; disabled?: boolean
-  style?: StyleProp<ViewStyle>; size?: 'lg' | 'md'
+  style?: StyleProp<ViewStyle>; size?: 'lg' | 'md'; testID?: string
 }) {
   const palette = {
     primary: { bg: colors.primary, fg: '#fff' },
@@ -55,6 +55,7 @@ export function Button({ title, onPress, kind = 'primary', icon, loading, disabl
   const off = disabled || loading
   return (
     <Pressable
+      testID={testID}
       disabled={off}
       onPress={() => { Haptics.selectionAsync(); onPress() }}
       style={({ pressed }) => [
@@ -102,8 +103,8 @@ export function IconBadge({ name, tone = 'primary', size = 40 }: { name: SfName;
   )
 }
 
-export function Row({ icon, tone, title, subtitle, right, onPress, chevron = !!onPress }: {
-  icon?: SfName; tone?: Tone; title: string; subtitle?: string; right?: ReactNode; onPress?: () => void; chevron?: boolean
+export function Row({ icon, tone, title, subtitle, right, onPress, chevron = !!onPress, testID }: {
+  icon?: SfName; tone?: Tone; title: string; subtitle?: string; right?: ReactNode; onPress?: () => void; chevron?: boolean; testID?: string
 }) {
   const body = (
     <>
@@ -116,8 +117,8 @@ export function Row({ icon, tone, title, subtitle, right, onPress, chevron = !!o
       {chevron ? <Icon name="chevron.right" size={13} color={colors.faint} /> : null}
     </>
   )
-  if (!onPress) return <View style={styles.row}>{body}</View>
-  return <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { backgroundColor: '#F6F8FA' }]}>{body}</Pressable>
+  if (!onPress) return <View testID={testID} style={styles.row}>{body}</View>
+  return <Pressable testID={testID} onPress={onPress} style={({ pressed }) => [styles.row, pressed && { backgroundColor: '#F6F8FA' }]}>{body}</Pressable>
 }
 
 export const Divider = () => <View style={styles.divider} />

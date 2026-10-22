@@ -1,16 +1,20 @@
 {
   "name": "ausflow-ios",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "expo-router/entry",
   "dependencies": {
     "expo": "~58.0.14",
     "expo-camera": "~58.0.10",
     "expo-constants": "~58.0.12",
+    "expo-file-system": "~58.0.10",
     "expo-font": "~58.0.8",
     "expo-haptics": "~58.0.7",
+    "expo-image-manipulator": "~58.0.15",
+    "expo-image-picker": "~58.0.10",
     "expo-linear-gradient": "~58.0.3",
     "expo-linking": "~58.0.13",
     "expo-location": "~58.0.17",
+    "expo-network": "~58.0.3",
     "expo-router": "~58.0.23",
     "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.10",
@@ -23,16 +27,33 @@
     "react-native-screens": "~4.30.0"
   },
   "devDependencies": {
+    "@types/jest": "30.0.0",
     "@types/react": "~19.3.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
+    "jest": "~30.5.2",
+    "jest-expo": "~58.0.11",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest",
+    "test:watch": "jest --watchAll"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "roots": [
+      "<rootDir>/src"
+    ],
+    "testMatch": [
+      "**/*.test.ts?(x)"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    }
   },
   "private": true
 }

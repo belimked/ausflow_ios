@@ -38,10 +38,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Typecheck and lint
+      - name: Typecheck, lint and unit tests
         run: |
           npx tsc --noEmit
           npx expo lint
+          npm test -- --ci
 
       - name: Install signing certificate and profile
         env:

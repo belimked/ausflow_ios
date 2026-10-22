@@ -1,0 +1,112 @@
+name: Build
+
+# Compiles the app for the iOS simulator and keeps it on GitHub as an artifact named by ci/app-artifact-name.sh.
+# Functional tests (e2e.yml) never compile; they download this build. Runs only when the app's own files change.
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'app.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'eslint.config.js'
+      - 'ci/app-artifact-name.sh'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write # start E2E once the build is uploaded
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: 1
+  EXPO_NO_TELEMETRY: 1
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx expo lint
+      - run: npm test -- --ci
+
+  simulator:
+    needs: unit
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Artifact name for this app version
+        id: name
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NAME=$(ci/app-artifact-name.sh)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          FOUND=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$NAME&per_page=5" --jq '[.artifacts[] | select(.expired == false)] | length')
+          echo "exists=$([ "$FOUND" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "$NAME (already on GitHub: $FOUND)"
+
+      - uses: actions/setup-node@v4
+        if: steps.name.outputs.exists != 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - if: steps.name.outputs.exists != 'true'
+        run: npm ci
+
+      - name: Generate native project
+        if: steps.name.outputs.exists != 'true'
+        run: npx expo prebuild -p ios --clean
+
+      # Release bundles the JS into the app, so no Metro server is needed. Signed "to run locally" (identity "-", no
+      # certificate or team): an unsigned app has no keychain entitlement, and SecureStore then fails at sign-in with
+      # "A required entitlement isn't present".
+      - name: Build for simulator
+        if: steps.name.outputs.exists != 'true'
+        run: |
+          xcodebuild -workspace ios/AusFlow.xcworkspace -scheme AusFlow -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= -quiet build
+          codesign -d --entitlements - "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator/AusFlow.app" 2>&1 | head -20 || true
+          # tar keeps the executable bits, which a plain artifact upload would drop.
+          tar -czf "$RUNNER_TEMP/AusFlow.app.tgz" -C "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator" AusFlow.app
+
+      - name: Keep the build on GitHub
+        if: steps.name.outputs.exists != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.name }}
+          path: ${{ runner.temp }}/AusFlow.app.tgz
+          retention-days: 30
+
+      - name: Start functional tests for this build
+        if: steps.name.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run e2e.yml --ref "$GITHUB_REF_NAME"
+
+      - name: Nothing to build
+        if: steps.name.outputs.exists == 'true'
+        run: echo "::notice::${{ steps.name.outputs.name }} is already on GitHub; the app files did not change."

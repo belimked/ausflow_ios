@@ -38,8 +38,35 @@ export interface Pickup {
   startAt?: string | null; endAt?: string | null
   startLat?: number | null; startLng?: number | null; endLat?: number | null; endLng?: number | null
   distance?: number | null; photos?: number | null; flags?: PickupFlag[] | null; note?: string | null
+  // Facility the driver plans to deliver to (optional).
+  plannedFacilityId?: string | null
   status: 'ongoing' | 'done'
 }
+
+export interface Facility { id: string; name: string; address?: string | null; lat?: number | null; lng?: number | null; qr?: string | null; status: string }
+
+// Waste moved from one vehicle to another (old WasteID "Transfer Waste").
+export interface Transfer {
+  id: string; companyId?: string | null; driverId?: string | null
+  fromVehicleId: string; toVehicleId: string; volume: number
+  at: string; lat?: number | null; lng?: number | null
+}
+
+// Waste discharged at a treatment facility (old WasteID "Offload / Deliver Waste").
+export interface Unload {
+  id: string; companyId?: string | null; driverId?: string | null
+  vehicleId: string; facilityId?: string | null; waste?: string | null; volume: number
+  at: string; lat?: number | null; lng?: number | null
+}
+
+export type IssueCategory = 'baffle_damaged' | 'no_washdown_tap' | 'premises_closed' | 'no_access' | 'qr_missing' | 'other'
+
+export interface ReportedIssue {
+  id: string; deviceId: string; category: IssueCategory; description?: string | null
+  reportedBy?: string | null; at: string; status: 'open' | 'resolved' | string; source: string
+}
+
+export interface Photo { id: string; entityType: string; entityId: string; kind: string; name?: string | null; dataUrl: string; user?: string | null; at?: string | null }
 
 export interface ChangeLog {
   id: string; deviceId: string | null; entityType: string; entityId: string | null
@@ -53,7 +80,11 @@ export interface AppData {
   devices: Device[]
   drivers: Driver[]
   vehicles: Vehicle[]
+  facilities: Facility[]
   pickups: Pickup[]
+  transfers: Transfer[]
+  unloads: Unload[]
+  reportedIssues: ReportedIssue[]
 }
 
 export interface WorkProfile { companyId: string; driverId: string; vehicleId: string }

@@ -1,0 +1,34 @@
+appId: com.ausflow
+name: Sign in, see Today, History and the Me data summary, sign out
+tags:
+  - auth
+---
+- runFlow: subflows/sign-in.yaml
+- assertVisible: ".*Scan device QR.*|.*PICKUP IN PROGRESS.*"
+- assertVisible: "Pickups today"
+# History lists pickups, offloads and transfers.
+- tapOn: "History"
+- tapOn: "Offloads"
+- assertVisible: "No offloads yet|.* L · .*"
+- tapOn: "Transfers"
+- assertVisible: "No transfers yet|.* L · .* → .*"
+- tapOn: "Me"
+# Phase 5: nothing recorded offline, so the sync section is clear.
+- assertVisible: ".*Up to date.*"
+- assertVisible: ".*My details.*"
+# Phase 0: facilities are now read from /state.
+- assertVisible: ".*devices · .* facilities"
+- scrollUntilVisible:
+    element:
+      id: "sign-out"
+    direction: DOWN
+- tapOn:
+    id: "sign-out"
+- assertVisible: "Sign out\\?"
+# The confirm button shares its label with the screen button; the alert is added after the screen, so it is the second match.
+- tapOn:
+    text: "Sign out"
+    index: 1
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 15000

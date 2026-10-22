@@ -1,24 +1,36 @@
 import * as Haptics from 'expo-haptics'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FlagPills } from '@/components/items'
+import { PhotoPicker } from '@/components/PhotoPicker'
 import { Button, Card, Divider, EmptyState, Icon, IconBadge, Pill, Row, SectionTitle } from '@/components/ui'
 import { LOCATION_FLAG_METRES } from '@/lib/config'
 import { deviceTitle, fmtDateTime, fmtDuration, fmtL, fmtM, fmtTime } from '@/lib/format'
 import { currentCoords } from '@/lib/geo'
+import { nearbyFacilities } from '@/lib/delivery'
+import { pickupDelivery } from '@/lib/load'
+import type { PreparedPhoto } from '@/lib/photo-file'
+import { isLocalId } from '@/lib/offline/queue'
+import { useTrailers } from '@/lib/trailers'
 import { useIndex, useStore } from '@/lib/store'
 import { colors } from '@/lib/theme'
 import type { Pickup } from '@/lib/types'
+import { DEFAULT_WASTE, wasteCodeOf, wasteOptions } from '@/lib/waste'
 import { useNow } from '@/lib/useNow'
 
 export default function JobScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const ix = useIndex()
-  const { profile, canWrite } = useStore()
+  const router = useRouter()
+  const { profile, canWrite, resolveId } = useStore()
   const [finished, setFinished] = useState<Pickup | null>(null)
   useNow(15000)
+
+  // A pickup recorded offline gets its real id once it is sent; follow it.
+  const real = resolveId(id)
+  useEffect(() => { if (real !== id && !finished) router.replace(`/job/${real}`) }, [real, id, finished, router])
 
   const p = finished || ix.pickups.get(id)
   if (!p) return <EmptyState icon="questionmark.circle" title="Pickup not found" message="It may have been cancelled." />
@@ -46,6 +58,16 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
   const { dev, title, vehicle } = useJobContext(pickup)
   const [volume, setVolume] = useState('')
   const [note, setNote] = useState('')
+  const [waste, setWaste] = useState(pickup.waste || DEFAULT_WASTE)
+  // DEMO: an attached trailer can be the target; the server still records the pickup on the truck.
+  const trailers = useTrailers()
+  const [into, setInto] = useState('')
+  const { data } = useStore()
+  const [planned, setPlanned] = useState<string | null>(pickup.plannedFacilityId ?? null)
+  const [photos, setPhotos] = useState<PreparedPhoto[]>([])
+  // Nearest facilities to the device the driver is standing at.
+  const destinations = nearbyFacilities(data?.facilities || [], dev?.lat != null && dev?.lng != null ? { lat: dev.lat, lng: dev.lng } : null).slice(0, 4)
+  const wastes = wasteOptions(pickup.waste || dev?.waste)
   const [busy, setBusy] = useState<string | null>(null)
 
   const cap = dev?.capacity || 0
@@ -64,7 +86,8 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
       setBusy('Getting your location…')
       const coords = await currentCoords()
       setBusy('Saving…')
-      const done = await finishJob(pickup.id, { volume: v, note, coords })
+      const done = await finishJob(pickup.id, { volume: v, note, coords, waste, plannedFacilityId: planned }, photos)
+      if (into) trailers.assign(done.id, into)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       onDone(done)
     } catch (e) {
@@ -129,6 +152,50 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
           </Text>
         </Card>
 
+        {trailers.attached.length ? (
+          <>
+            <SectionTitle title="Collect into" right={<Pill label="DEMO" tone="warning" />} />
+            <View style={s.wastes}>
+              {[{ id: '', plate: vehicle?.plate || 'Truck' }, ...trailers.attached].map((x) => (
+                <Pressable key={x.id || 'truck'} onPress={() => setInto(x.id)} style={[s.waste, into === x.id && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                  <Icon name={x.id ? 'link' : 'truck.box.fill'} size={14} color={into === x.id ? '#fff' : colors.muted} />
+                  <Text style={[s.wasteText, into === x.id && { color: '#fff' }]}>{x.plate}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        <SectionTitle title="Waste type" />
+        <View style={s.wastes}>
+          {wastes.map((w) => {
+            const on = w.toLowerCase() === waste.toLowerCase()
+            const code = wasteCodeOf(w)
+            return (
+              <Pressable key={w} onPress={() => { Haptics.selectionAsync(); setWaste(w) }} style={[s.waste, on && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                <Text style={[s.wasteText, on && { color: '#fff' }]}>{w}</Text>
+                {code ? <Text style={[s.wasteCode, on && { color: 'rgba(255,255,255,0.8)' }]}>{code}</Text> : null}
+              </Pressable>
+            )
+          })}
+        </View>
+
+        {destinations.length ? (
+          <>
+            <SectionTitle title="Planned destination (optional)" />
+            <View style={s.wastes}>
+              {[{ id: null, name: 'Not decided' }, ...destinations.map((x) => x.facility)].map((f) => (
+                <Pressable key={f.id || 'none'} onPress={() => setPlanned(f.id)} style={[s.waste, planned === f.id && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                  <Text style={[s.wasteText, planned === f.id && { color: '#fff' }]}>{f.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        <SectionTitle title="Photos (optional)" />
+        <PhotoPicker photos={photos} onChange={setPhotos} />
+
         <SectionTitle title="Note (optional)" />
         <Card style={{ padding: 0 }}>
           <TextInput value={note} onChangeText={setNote} placeholder="Anything the office should know, e.g. access issues" placeholderTextColor={colors.faint}
@@ -139,7 +206,7 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
           <Icon name="location.fill" size={11} color={colors.faint} /> Your location is recorded when you finish. Pickups more than {LOCATION_FLAG_METRES} m from the device are flagged.
         </Text>
 
-        <Button title="Cancel pickup" kind="ghost" onPress={cancel} style={{ marginTop: 18 }} size="md" />
+        <Button testID="job-cancel" title="Cancel pickup" kind="ghost" onPress={cancel} style={{ marginTop: 18 }} size="md" />
       </ScrollView>
       <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Button title={busy || (valid ? `Complete · ${v.toLocaleString('en-AU')} L` : 'Enter volume to complete')} kind="success"
@@ -173,16 +240,20 @@ function Success({ pickup }: { pickup: Pickup }) {
 function Details({ pickup }: { pickup: Pickup }) {
   const router = useRouter()
   const { dev, driver, vehicle, title } = useJobContext(pickup)
+  const { data } = useStore()
+  const ix = useIndex()
   const ongoing = pickup.status === 'ongoing'
+  const delivery = data && !ongoing && (pickup.volume || 0) > 0 ? pickupDelivery(data, pickup) : null
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      <Stack.Screen options={{ title: pickup.id }} />
+      <Stack.Screen options={{ title: isLocalId(pickup.id) ? 'Waiting to sync' : pickup.id }} />
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <IconBadge name={ongoing ? 'truck.box.fill' : 'checkmark'} tone={ongoing ? 'primary' : 'success'} size={52} />
           <View style={{ flex: 1, gap: 4 }}>
             <Text style={s.liveTitle}>{title}</Text>
             <Pill label={ongoing ? 'In progress' : 'Completed'} tone={ongoing ? 'primary' : 'success'} />
+            {isLocalId(pickup.id) ? <Pill label="Not sent yet" tone="warning" icon="icloud.slash.fill" /> : null}
           </View>
           {!ongoing ? <Text style={s.bigVolume}>{fmtL(pickup.volume)}</Text> : null}
         </View>
@@ -198,7 +269,11 @@ function Details({ pickup }: { pickup: Pickup }) {
         <Row icon="truck.box.fill" tone="neutral" title={vehicle?.plate || '—'} subtitle="Vehicle" />
         <Divider />
         <Row icon="location.fill" tone="neutral" title={fmtM(pickup.distance)} subtitle="Distance from device" />
-        {pickup.waste ? (<><Divider /><Row icon="drop.fill" tone="neutral" title={pickup.waste} subtitle="Waste type" /></>) : null}
+        {pickup.plannedFacilityId ? (<><Divider /><Row icon="flag.fill" tone="neutral" title={ix.facilities.get(pickup.plannedFacilityId)?.name || pickup.plannedFacilityId} subtitle="Planned destination" /></>) : null}
+        {delivery ? (<><Divider /><Row icon={delivery.state === 'delivered' ? 'building.columns.fill' : 'truck.box.fill'} tone={delivery.state === 'delivered' ? 'success' : 'warning'}
+          title={delivery.state === 'delivered' ? `Delivered to ${ix.facilities.get(delivery.facilityId || '')?.name || 'a facility'}` : `On board ${ix.vehicles.get(delivery.vehicleId || '')?.plate || 'a vehicle'}`}
+          subtitle={delivery.unload ? fmtDateTime(delivery.unload.at) : 'Not offloaded yet'} /></>) : null}
+        {pickup.waste ? (<><Divider /><Row icon="drop.fill" tone="neutral" title={[pickup.waste, wasteCodeOf(pickup.waste)].filter(Boolean).join(' · ')} subtitle="Waste type" /></>) : null}
         {pickup.note ? (<><Divider /><Row icon="note.text" tone="neutral" title="Note" subtitle={pickup.note} /></>) : null}
         {dev ? (<><Divider /><Row icon="drop.circle.fill" title={`Device ${dev.ref}`} subtitle="View device" onPress={() => router.push(`/device/${dev.id}`)} /></>) : null}
       </Card>
@@ -223,6 +298,10 @@ const s = StyleSheet.create({
   presetText: { fontSize: 15, fontWeight: '800', color: colors.text },
   presetSub: { fontSize: 11, fontWeight: '600', color: colors.muted, marginTop: 1 },
   hint: { fontSize: 13, color: colors.muted, textAlign: 'center', marginTop: 12, fontWeight: '500' },
+  wastes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  waste: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  wasteText: { fontSize: 15, fontWeight: '700', color: colors.text },
+  wasteCode: { fontSize: 12, fontWeight: '700', color: colors.muted },
   note: { minHeight: 96, padding: 14, fontSize: 16, color: colors.text, textAlignVertical: 'top' },
   gpsHint: { fontSize: 12, color: colors.faint, marginTop: 14, paddingHorizontal: 4, lineHeight: 17 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, backgroundColor: 'rgba(242,245,248,0.96)', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },

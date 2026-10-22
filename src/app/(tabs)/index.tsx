@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DeviceRow, JobRow } from '@/components/items'
+import { TrailersCard } from '@/components/Trailers'
 import { Button, Card, Divider, EmptyState, Icon, SectionTitle, Stat } from '@/components/ui'
 import { ENV_LABEL } from '@/lib/config'
 import { deviceTitle, dueState, fmtDuration, fmtL, fmtTime, nextService, startOfDay } from '@/lib/format'
@@ -19,7 +20,7 @@ function greeting() {
 export default function Today() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { data, session, profile, loading, error, refresh, canWrite } = useStore()
+  const { data, session, profile, loading, error, refresh, canWrite, online, pending, syncing } = useStore()
   const ix = useIndex()
   useNow()
 
@@ -67,10 +68,18 @@ export default function Today() {
             <Text style={s.hello}>{greeting()}{firstName ? ',' : ''}</Text>
             {firstName ? <Text style={s.name}>{firstName}</Text> : null}
           </View>
-          <View style={s.env}><Text style={s.envText}>{ENV_LABEL}</Text></View>
+          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            <View style={s.env}><Text style={s.envText}>{ENV_LABEL}</Text></View>
+            {!online || pending ? (
+              <Pressable testID="today-sync" onPress={() => router.navigate('/profile')} style={[s.env, s.sync]}>
+                <Icon name={online ? 'arrow.triangle.2.circlepath' : 'icloud.slash.fill'} size={11} color="#fff" />
+                <Text style={s.envText}>{!online ? 'OFFLINE' : syncing ? 'SENDING' : 'WAITING'}{pending ? ` · ${pending}` : ''}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
-        <Pressable onPress={() => router.push('/setup')} style={({ pressed }) => [s.workAs, pressed && { opacity: 0.85 }]}>
+        <Pressable testID="today-working-as" onPress={() => router.push('/setup')} style={({ pressed }) => [s.workAs, pressed && { opacity: 0.85 }]}>
           <View style={s.workIcon}><Icon name="truck.box.fill" size={20} color="#fff" /></View>
           {profile && driver && vehicle ? (
             <View style={{ flex: 1 }}>
@@ -101,6 +110,7 @@ export default function Today() {
           </Card>
         ) : (
           <Pressable
+            testID="today-scan"
             disabled={!canWrite}
             onPress={() => router.push(profile ? '/scan' : '/setup')}
             style={({ pressed }) => [s.scan, !canWrite && { opacity: 0.6 }, pressed && { transform: [{ scale: 0.98 }] }]}>
@@ -112,6 +122,12 @@ export default function Today() {
             <Icon name="chevron.right" size={15} color={colors.faint} />
           </Pressable>
         )}
+
+        {vehicle ? (
+          <OnBoard litres={Math.max(0, ix.loads.get(vehicle.id) || 0)} tank={vehicle.tank || 0} plate={vehicle.plate}
+            onPress={() => router.push('/vehicle')} onOffload={canWrite ? () => router.push('/offload') : undefined} />
+        ) : null}
+        {vehicle ? <TrailersCard /> : null}
 
         <View style={s.stats}>
           <Stat label="Pickups today" value={String(view?.doneToday.length || 0)} icon="checkmark.circle.fill" tone="success" />
@@ -139,13 +155,45 @@ export default function Today() {
   )
 }
 
+// Waste on board the selected vehicle; red from 90 % of the tank, like the web console's load gauge.
+function OnBoard({ litres, tank, plate, onPress, onOffload }: { litres: number; tank: number; plate: string; onPress: () => void; onOffload?: () => void }) {
+  const pct = tank ? Math.min(1, litres / tank) : 0
+  const full = tank > 0 && litres / tank >= 0.9
+  return (
+    <Card testID="today-on-board" style={s.load} onPress={onPress}>
+      <View style={s.loadHead}>
+        <Text style={s.loadLabel}>ON BOARD · {plate}</Text>
+        <Text style={[s.loadValue, full && { color: colors.danger }]}>
+          {fmtL(litres)}{tank ? <Text style={s.loadTank}> / {fmtL(tank)}</Text> : null}
+        </Text>
+      </View>
+      {tank ? (
+        <View style={s.bar}>
+          <View style={[s.barFill, { width: `${pct * 100}%`, backgroundColor: full ? colors.danger : colors.primaryBright }]} />
+        </View>
+      ) : null}
+      {onOffload && litres > 0 ? (
+        <Button testID="today-offload" title="Offload waste" kind="success" icon="arrow.down.to.line" size="md" onPress={onOffload} style={{ marginTop: 12 }} />
+      ) : null}
+    </Card>
+  )
+}
+
 const s = StyleSheet.create({
+  load: { marginTop: 14, paddingVertical: 14 },
+  loadHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
+  loadLabel: { flexShrink: 1, fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 0.6 },
+  loadValue: { fontSize: 18, fontWeight: '800', color: colors.text },
+  loadTank: { fontSize: 13, fontWeight: '600', color: colors.faint },
+  bar: { height: 8, borderRadius: 4, backgroundColor: colors.bg, marginTop: 10, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 4 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { paddingHorizontal: 20, paddingBottom: 56, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   heroTop: { flexDirection: 'row', alignItems: 'flex-start' },
   hello: { color: 'rgba(255,255,255,0.85)', fontSize: 16, fontWeight: '600' },
   name: { color: '#fff', fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
   env: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.2)', marginTop: 4 },
+  sync: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 0, backgroundColor: 'rgba(15,27,42,0.35)' },
   envText: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
   workAs: { marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.16)' },
   workIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },

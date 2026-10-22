@@ -1,0 +1,146 @@
+name: E2E
+
+# Functional tests (Maestro on an iOS simulator). Never compiles: it downloads the build that build.yml keeps on
+# GitHub for the same app files (ci/app-artifact-name.sh). Runs when the flows change, when Build finishes a new
+# build, or by hand.
+on:
+  push:
+    branches: ['**']
+    paths:
+      - '.maestro/**'
+      - '.github/workflows/e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Find the build of this app version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NAME=$(ci/app-artifact-name.sh)
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$NAME&per_page=5" \
+            --jq '[.artifacts[] | select(.expired == false)][0].workflow_run.id // empty')
+          if [ -n "$RUN" ]; then
+            echo "Using $NAME from Build run $RUN"
+            echo "APP_ARTIFACT=$NAME" >> "$GITHUB_ENV"
+            echo "APP_RUN=$RUN" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          BUSY=$(gh run list --workflow build.yml --branch "$GITHUB_REF_NAME" --json status,headSha \
+            --jq "[.[] | select(.headSha == \"$GITHUB_SHA\" and .status != \"completed\")] | length")
+          if [ "$BUSY" != 0 ]; then
+            echo "::notice::$NAME is still being built; Build starts E2E when it is done."
+            echo "SKIP=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "::error::No build of this app version on GitHub ($NAME). Run the Build workflow for this branch."
+          exit 1
+
+      - uses: actions/download-artifact@v4
+        if: env.SKIP != 'true'
+        with:
+          name: ${{ env.APP_ARTIFACT }}
+          run-id: ${{ env.APP_RUN }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/app
+
+      - name: Unpack the app
+        if: env.SKIP != 'true'
+        run: tar -xzf "$RUNNER_TEMP/app/AusFlow.app.tgz" -C "$RUNNER_TEMP/app" && ls "$RUNNER_TEMP/app"
+
+      # Maestro needs Java 17+.
+      - uses: actions/setup-java@v5
+        if: env.SKIP != 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Boot simulator and install the app
+        if: env.SKIP != 'true'
+        run: |
+          UDID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name | startswith("iPhone"))] | first | .udid')
+          [ -n "$UDID" ] && [ "$UDID" != null ] || { echo "::error::No iPhone simulator available"; exit 1; }
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$RUNNER_TEMP/app/AusFlow.app"
+          # Avoid the location prompt and give the pickup flow a fixed position (Adelaide CBD).
+          xcrun simctl privacy "$UDID" grant location com.ausflow || true
+          xcrun simctl location "$UDID" set -34.9285,138.6007 || true
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+
+      # Tells "app broken" apart from "UAT unreachable from the runner" when a flow fails.
+      - name: Check UAT is reachable
+        if: env.SKIP != 'true'
+        run: |
+          curl -s -m 20 -w '\nHTTP %{http_code}\n' -X POST -H 'Content-Type: application/json' \
+            -d '{"username":"ci-probe-no-such-user","password":"x"}' https://uat.ausflow.saulxj.ggff.net/api/login || echo "::warning::UAT not reachable from the runner"
+
+      - name: Install Maestro
+        if: env.SKIP != 'true'
+        run: |
+          curl -fsSL https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      # Flows that need an account or write to UAT only run when their secrets/variables are configured.
+      - name: Run functional tests
+        if: env.SKIP != 'true'
+        env:
+          # The XCTest driver can take several minutes to start on a fresh hosted runner (default timeout is too short).
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 600000
+          MAESTRO_CLI_NO_ANALYTICS: 1
+          E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          # Test data seeded on UAT by the backend's uat branch (migrations/0015_uat_e2e_seed.sql); variables override.
+          E2E_COMPANY: ${{ vars.E2E_COMPANY || 'E2E Transport' }}
+          E2E_DRIVER: ${{ vars.E2E_DRIVER || 'E2E Driver One' }}
+          E2E_PLATE: ${{ vars.E2E_PLATE || 'E2E 001' }}
+          E2E_DEVICE: ${{ vars.E2E_DEVICE || 'E2E-DEV-001' }}
+          # 'true' (variable or secret) once that seed has been deployed to UAT.
+          E2E_READY: ${{ vars.E2E_READY || secrets.E2E_READY }}
+        run: |
+          # smoke: no account · auth: needs the E2E account · data: also needs the E2E_* test-data variables.
+          TAGS=smoke
+          EXCLUDE=data
+          if [ "$E2E_READY" = true ] && [ -n "$E2E_USERNAME" ] && [ -n "$E2E_PASSWORD" ]; then
+            TAGS="smoke,auth"
+            if [ -n "$E2E_COMPANY" ] && [ -n "$E2E_PLATE" ] && [ -n "$E2E_DEVICE" ]; then EXCLUDE=none; fi
+          else
+            echo "::warning::E2E account not enabled (needs E2E_READY=true and the E2E_USERNAME / E2E_PASSWORD secrets); only smoke flows will run."
+          fi
+          [ "$EXCLUDE" = data ] && [ "$TAGS" != smoke ] && echo "::warning::E2E_COMPANY / E2E_PLATE / E2E_DEVICE variables are not set; flows tagged data are skipped."
+          echo "Include: $TAGS · exclude: $EXCLUDE"
+          maestro --device "$UDID" test .maestro \
+            --include-tags "$TAGS" --exclude-tags "$EXCLUDE" \
+            --format junit --output "$RUNNER_TEMP/maestro-report.xml" \
+            --debug-output "$RUNNER_TEMP/maestro-debug" --test-output-dir "$RUNNER_TEMP/maestro-debug" \
+            -e E2E_USERNAME="$E2E_USERNAME" -e E2E_PASSWORD="$E2E_PASSWORD" \
+            -e E2E_COMPANY="$E2E_COMPANY" -e E2E_DRIVER="${E2E_DRIVER:-__none__}" \
+            -e E2E_PLATE="$E2E_PLATE" -e E2E_DEVICE="$E2E_DEVICE"
+
+      - name: Upload test report and screenshots
+        if: always() && env.SKIP != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/maestro-report.xml
+            ${{ runner.temp }}/maestro-debug
+          retention-days: 14
+          if-no-files-found: ignore

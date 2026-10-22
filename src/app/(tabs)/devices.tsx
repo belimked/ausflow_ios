@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native'
 import { DeviceRow } from '@/components/items'
 import { Chip, EmptyState, Icon, ScreenHeader } from '@/components/ui'
-import { addressOf, dueState, nextService } from '@/lib/format'
+import { addressOf, dueState, dueWithin, nextService } from '@/lib/format'
 import { currentCoords, distanceM } from '@/lib/geo'
 import { useIndex, useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
@@ -16,6 +16,8 @@ export default function Devices() {
   const [q, setQ] = useState('')
   const [mineOnly, setMineOnly] = useState(!!profile)
   const [overdueOnly, setOverdueOnly] = useState(false)
+  // Service list window (old WasteID "Service Due Before"): 0 = any.
+  const [dueDays, setDueDays] = useState<0 | 7 | 30>(0)
   const [here, setHere] = useState<Coords | null>(null)
   const [locating, setLocating] = useState(false)
 
@@ -33,6 +35,7 @@ export default function Devices() {
     const list = (data?.devices || []).filter((d) => {
       if (mineOnly && profile && d.companyId !== profile.companyId) return false
       if (overdueOnly && dueState(d).state !== 'overdue') return false
+      if (dueDays && !dueWithin(d, dueDays)) return false
       if (!needle) return true
       const loc = d.locationId ? ix.locations.get(d.locationId) : undefined
       return [d.ref, d.aka, d.qr, d.tags, d.locationDesc, loc?.name, addressOf(loc)].some((v) => v && v.toLowerCase().includes(needle))
@@ -40,7 +43,7 @@ export default function Devices() {
     if (here) list.sort((a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity))
     else list.sort((a, b) => (nextService(a.d) || '9').localeCompare(nextService(b.d) || '9'))
     return list
-  }, [data, q, mineOnly, overdueOnly, here, profile, ix])
+  }, [data, q, mineOnly, overdueOnly, dueDays, here, profile, ix])
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -58,6 +61,10 @@ export default function Devices() {
         {profile ? <Chip label="My company" icon="building.2.fill" active={mineOnly} onPress={() => setMineOnly((v) => !v)} /> : null}
         <Chip label="Overdue" icon="exclamationmark.triangle.fill" active={overdueOnly} onPress={() => setOverdueOnly((v) => !v)} />
         <Chip label={locating ? 'Locating…' : 'Nearby'} icon="location.fill" active={!!here} onPress={toggleNearby} />
+      </View>
+      <View style={[s.chips, { paddingTop: 8 }]}>
+        <Chip label="Due in 7 days" icon="calendar" active={dueDays === 7} onPress={() => setDueDays((v) => (v === 7 ? 0 : 7))} />
+        <Chip label="Due in 30 days" icon="calendar" active={dueDays === 30} onPress={() => setDueDays((v) => (v === 30 ? 0 : 30))} />
       </View>
       <FlatList
         data={rows}

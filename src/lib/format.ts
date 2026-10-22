@@ -61,6 +61,13 @@ export function dueState(d: Device): { state: DueState; label: string; days: num
   return { state: 'ok', label: `Due ${fmtDate(n)}`, days }
 }
 
+// Old WasteID service list "Service Due Before": active devices whose next service falls within `days`
+// from today, overdue ones included.
+export function dueWithin(d: Device, days: number) {
+  const s = dueState(d)
+  return s.state !== 'unknown' && s.days <= days
+}
+
 export const deviceTitle = (d?: Device | null, loc?: Location | null) => d?.aka || loc?.name || d?.ref || 'Unknown device'
 
 export function addressOf(loc?: Location | null) {

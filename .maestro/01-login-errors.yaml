@@ -1,0 +1,31 @@
+appId: com.ausflow
+name: Login screen validates input and shows server errors
+tags:
+  - smoke
+---
+- clearKeychain
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 30000
+- assertVisible: "UAT environment"
+- assertVisible: "Remember my username"
+- assertVisible: "Forgot password\\?"
+- tapOn:
+    id: "login-submit"
+- assertVisible: "Enter your username and password."
+- tapOn:
+    id: "login-username"
+- inputText: "e2e-no-such-user"
+# Tap the password field only once the keyboard has finished pushing the form up (an early tap misses).
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "login-password"
+- inputText: "not-the-password"
+# "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Invalid username or password"
+    timeout: 30000
