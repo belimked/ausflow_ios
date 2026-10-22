@@ -182,7 +182,7 @@ jobs:
             -e E2E_PLATE="$E2E_PLATE" -e E2E_DEVICE="$E2E_DEVICE" || STATUS=$?
           # With --test-output-dir, takeScreenshot writes under that directory (…/takeScreenshot/shots/*.png).
           # Keep whatever was captured even when a later step of the flow failed.
-          find "$RUNNER_TEMP/maestro-debug" shots -path '*shots/*.png' -print | sort | while read -r f; do
+          find "$RUNNER_TEMP/maestro-debug" shots -path '*takeScreenshot/shots/*.png' -o -path 'shots/*.png' | sort | while read -r f; do
             sips -Z 1000 -s format jpeg -s formatOptions 82 "$f" --out "$RUNNER_TEMP/shots-small/$(basename "${f%.png}").jpg" > /dev/null
           done
           ls -la "$RUNNER_TEMP/shots-small"

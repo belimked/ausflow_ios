@@ -38,6 +38,15 @@ tags:
       id: "login-username"
     timeout: 1500
     optional: true
+# Next usually moves focus to the password field, but now and then it only closes the keyboard. A tap at 50%,60%
+# lands inside the password field whether the form is pushed up (keyboard open) or not, so focus it that way.
+- tapOn:
+    point: "50%,60%"
+- extendedWaitUntil:
+    notVisible:
+      id: "login-username"
+    timeout: 1000
+    optional: true
 - inputText: "not-the-password"
 - assertVisible:
     id: "login-username"
