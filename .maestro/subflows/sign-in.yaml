@@ -41,8 +41,8 @@ appId: com.ausflow
 - extendedWaitUntil:
     visible: "Not Now|Good (morning|afternoon|evening).*"
     timeout: 60000
-- runFlow: subflows/dismiss-save-password.yaml
+- runFlow: dismiss-save-password.yaml
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening).*"
     timeout: 30000
-- runFlow: subflows/dismiss-save-password.yaml
+- runFlow: dismiss-save-password.yaml
