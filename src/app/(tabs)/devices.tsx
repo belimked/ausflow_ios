@@ -73,7 +73,7 @@ export default function Devices() {
         // A tap on a result should open it even while the search keyboard is up (not just dismiss the keyboard).
         keyboardShouldPersistTaps="handled"
         initialNumToRender={14}
-        contentContainerStyle={{ padding: 16, paddingTop: 8, gap: 8 }}
+        contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 140, gap: 8 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
         renderItem={({ item }) => <View style={s.card}><DeviceRow device={item.d} distance={item.dist} /></View>}
         ListEmptyComponent={<EmptyState icon="magnifyingglass" title="No devices found" message="Try a different search or clear the filters." />}

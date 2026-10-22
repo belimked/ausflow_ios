@@ -81,7 +81,7 @@ export default function Jobs() {
         sections={sections}
         keyExtractor={(it) => it.id}
         stickySectionHeadersEnabled={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
         renderSectionHeader={({ section }) => (
           <View style={s.sectionHead}>

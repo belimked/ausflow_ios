@@ -59,7 +59,7 @@ export default function Today() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ paddingBottom: 32 }}
+      contentContainerStyle={{ paddingBottom: 140 }}
       contentInsetAdjustmentBehavior="never"
       refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor="#fff" />}>
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.hero, { paddingTop: insets.top + 16 }]}>
