@@ -94,7 +94,9 @@ export default function Login() {
             <Icon name="lock" size={17} color={colors.faint} />
             <TextInput
               testID="login-password" value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={colors.faint}
-              ref={passwordRef} secureTextEntry={!show} textContentType="password" returnKeyType="go" onSubmitEditing={submit} style={s.input}
+              // oneTimeCode keeps iOS from pairing this with the username and showing "Save Password?" after sign-in; that
+              // system sheet covers the app and makes the UI test driver time out.
+              ref={passwordRef} secureTextEntry={!show} textContentType="oneTimeCode" returnKeyType="go" onSubmitEditing={submit} style={s.input}
             />
             <Pressable hitSlop={10} onPress={() => setShow((v) => !v)}>
               <Icon name={show ? 'eye.slash' : 'eye'} size={17} color={colors.muted} />

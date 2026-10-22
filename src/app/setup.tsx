@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useMemo, useState } from 'react'
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Card, Divider, EmptyState, Icon, Row } from '@/components/ui'
 import { fmtL } from '@/lib/format'
@@ -51,6 +51,8 @@ export default function Setup() {
     setDriverId(p.driverId)
     setVehicleId(p.vehicleId)
     setPlate('')
+    // The search is done; the keyboard would otherwise cover the driver list and the Save button.
+    Keyboard.dismiss()
   }
 
   const ready = drivers.some((d) => d.id === driverId) && vehicles.some((v) => v.id === vehicleId)
