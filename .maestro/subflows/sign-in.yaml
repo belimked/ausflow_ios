@@ -9,26 +9,40 @@ appId: com.ausflow
     timeout: 30000
 - tapOn:
     id: "login-username"
+- waitForAnimationToEnd:
+    timeout: 3000
 - inputText: ${E2E_USERNAME}
-# Tap the password field only once the keyboard has finished pushing the form up (an early tap misses).
-- waitForAnimationToEnd:
-    timeout: 3000
-- tapOn:
-    id: "login-password"
-- inputText: ${E2E_PASSWORD}
-# "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
-- pressKey: Enter
-# iOS may offer to save the password in a system sheet that covers the app; dismiss it when it shows up.
-- extendedWaitUntil:
-    visible: "Not Now|Good (morning|afternoon|evening).*"
-    timeout: 30000
-- waitForAnimationToEnd:
-    timeout: 3000
+# Right after the app starts the keyboard can swallow the first characters; the field still has focus, so retype.
 - runFlow:
     when:
-      visible: "Not Now"
+      notVisible:
+        id: "login-username"
+        text: "^${E2E_USERNAME}$"
     commands:
-      - tapOn: "Not Now"
+      - eraseText: 60
+      - inputText: ${E2E_USERNAME}
+# Never tap while the keyboard is up: the form moves and Maestro aims with a stale hierarchy. "Next" on the
+# username keyboard moves focus to the password field. The iOS driver never reports `focused`, so give the focus
+# change a moment (an optional wait that always times out), then check nothing leaked into the username field.
+- pressKey: Enter
+- extendedWaitUntil:
+    notVisible:
+      id: "login-username"
+    timeout: 1500
+    optional: true
+- inputText: ${E2E_PASSWORD}
+- assertVisible:
+    id: "login-username"
+    text: "^${E2E_USERNAME}$"
+# "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
+- pressKey: Enter
+# Today shows once /state has loaded (slow on the first flow of a run). iOS may then offer to save the password in
+# a system sheet that covers the app, before or after Today appears; dismiss it in either order.
+- extendedWaitUntil:
+    visible: "Not Now|Good (morning|afternoon|evening).*"
+    timeout: 60000
+- runFlow: dismiss-save-password.yaml
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening).*"
-    timeout: 15000
+    timeout: 30000
+- runFlow: dismiss-save-password.yaml

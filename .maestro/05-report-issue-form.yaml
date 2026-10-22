@@ -9,11 +9,16 @@ tags:
 - tapOn: "Devices"
 - tapOn: "Name, address, ref or QR code"
 - inputText: ${E2E_DEVICE}
+# Dismiss the search keyboard (return key = search) so the tap reaches the row.
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn: ".*${E2E_DEVICE} · .*"
 - scrollUntilVisible:
     element:
       id: "device-report-issue"
     direction: DOWN
+    centerElement: true
 - tapOn:
     id: "device-report-issue"
 - assertVisible: "What's the problem\\?"

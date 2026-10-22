@@ -3,6 +3,12 @@ name: iOS Ad Hoc
 on:
   push:
     branches: [main]
+    # Test flows, docs and the test workflows do not change the app; no new IPA for them.
+    paths-ignore:
+      - '.maestro/**'
+      - 'docs/**'
+      - '.github/workflows/build.yml'
+      - '.github/workflows/e2e.yml'
   workflow_dispatch:
 
 permissions:

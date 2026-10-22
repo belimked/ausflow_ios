@@ -11,6 +11,7 @@ tags:
     element:
       id: "trailer-attach"
     direction: DOWN
+    centerElement: true
 - assertVisible: "TRAILERS"
 - assertVisible: "DEMO"
 - tapOn:

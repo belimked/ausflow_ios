@@ -8,13 +8,20 @@ appId: com.ausflow
 - inputText: ${E2E_PLATE}
 - tapOn:
     id: "setup-plate-match"
-- runFlow:
-    when:
-      visible: "${E2E_DRIVER}.*"
-    commands:
-      - tapOn: "${E2E_DRIVER}.*"
+# The app dismisses the keyboard after a match; Enter does the same in case the field still has focus.
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 3000
+# The E2E company has two drivers, so one must be chosen.
+- scrollUntilVisible:
+    element: ".*${E2E_DRIVER}.*"
+    direction: DOWN
+    centerElement: true
+- tapOn: ".*${E2E_DRIVER}.*"
 - tapOn:
     id: "setup-save"
+# The on-board card (text "ON BOARD · <plate>" is split across nodes on iOS, so match the id).
 - extendedWaitUntil:
-    visible: ".*ON BOARD · ${E2E_PLATE}.*"
+    visible:
+      id: "today-on-board"
     timeout: 15000

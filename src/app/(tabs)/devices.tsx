@@ -70,6 +70,8 @@ export default function Devices() {
         data={rows}
         keyExtractor={(r) => r.d.id}
         keyboardDismissMode="on-drag"
+        // A tap on a result should open it even while the search keyboard is up (not just dismiss the keyboard).
+        keyboardShouldPersistTaps="handled"
         initialNumToRender={14}
         contentContainerStyle={{ padding: 16, paddingTop: 8, gap: 8 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}

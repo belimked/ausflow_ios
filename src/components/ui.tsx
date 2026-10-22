@@ -8,7 +8,9 @@ import { colors, radius, shadow } from '@/lib/theme'
 type SfName = Extract<SymbolViewProps['name'], string>
 
 export function Icon({ name, size = 20, color = colors.text, weight = 'semibold' }: { name: SfName; size?: number; color?: string; weight?: SymbolViewProps['weight'] }) {
-  return <SymbolView name={name} size={size} tintColor={color} weight={weight} style={{ width: size, height: size }} />
+  // Decorative: without this the symbol name ("person.fill", "Building") is read by VoiceOver and prefixed to every
+  // button label, e.g. "person.fill, E2E Driver One, circle".
+  return <SymbolView name={name} size={size} tintColor={color} weight={weight} style={{ width: size, height: size }} accessible={false} accessibilityElementsHidden />
 }
 
 type Tone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger'
