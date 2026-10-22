@@ -8,9 +8,9 @@ tags:
 - assertVisible: "Pickups today"
 # History lists pickups, offloads and transfers.
 - tapOn: "History"
-- tapOn: "Offloads"
+- tapOn: ".*Offloads.*"
 - assertVisible: "No offloads yet|.* L · .*"
-- tapOn: "Transfers"
+- tapOn: ".*Transfers.*"
 - assertVisible: "No transfers yet|.* L · .* → .*"
 - tapOn: "Me"
 # Phase 5: nothing recorded offline, so the sync section is clear.

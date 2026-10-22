@@ -17,7 +17,18 @@ tags:
 - assertVisible: "Enter your username and password."
 - tapOn:
     id: "login-username"
+- waitForAnimationToEnd:
+    timeout: 3000
 - inputText: "e2e-no-such-user"
+# Right after the app starts the keyboard can swallow the first characters; the field still has focus, so retype.
+- runFlow:
+    when:
+      notVisible:
+        id: "login-username"
+        text: "^e2e-no-such-user$"
+    commands:
+      - eraseText: 60
+      - inputText: "e2e-no-such-user"
 # Never tap while the keyboard is up: the form moves and Maestro aims with a stale hierarchy. "Next" on the
 # username keyboard moves focus to the password field. The iOS driver never reports `focused`, so give the focus
 # change a moment (an optional wait that always times out), then check nothing leaked into the username field.

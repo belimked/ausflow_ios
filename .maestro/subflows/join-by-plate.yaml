@@ -14,9 +14,9 @@ appId: com.ausflow
     timeout: 3000
 # The E2E company has two drivers, so one must be chosen.
 - scrollUntilVisible:
-    element: "${E2E_DRIVER}.*"
+    element: ".*${E2E_DRIVER}.*"
     direction: DOWN
-- tapOn: "${E2E_DRIVER}.*"
+- tapOn: ".*${E2E_DRIVER}.*"
 - tapOn:
     id: "setup-save"
 # The on-board card (text "ON BOARD · <plate>" is split across nodes on iOS, so match the id).
