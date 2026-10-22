@@ -18,18 +18,15 @@ tags:
 - assertVisible: ".*My details.*"
 # Phase 0: facilities are now read from /state.
 - assertVisible: ".*devices · .* facilities"
+# Me is short: the button cannot be centred, but the screen keeps it clear of the tab bar.
 - scrollUntilVisible:
     element:
       id: "sign-out"
     direction: DOWN
-    centerElement: true
 - tapOn:
     id: "sign-out"
 - assertVisible: "Sign out\\?"
-# The confirm button shares its label with the screen button; the alert is added after the screen, so it is the second match.
-- tapOn:
-    text: "Sign out"
-    index: 1
+- tapOn: "Yes, sign out"
 - extendedWaitUntil:
     visible: "Welcome back"
     timeout: 15000

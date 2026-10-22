@@ -102,7 +102,7 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
     Alert.alert('Cancel this pickup?', 'The pickup will be deleted. Use this only if it was started by mistake.', [
       { text: 'Keep', style: 'cancel' },
       {
-        text: 'Cancel pickup', style: 'destructive', onPress: async () => {
+        text: 'Yes, cancel', style: 'destructive', onPress: async () => {
           try { await cancelJob(pickup.id); router.back() } catch (e) { Alert.alert('Could not cancel', (e as Error).message) }
         },
       },

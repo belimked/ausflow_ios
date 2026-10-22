@@ -86,6 +86,25 @@ jobs:
           echo "UDID=$UDID" >> "$GITHUB_ENV"
 
       # Tells "app broken" apart from "UAT unreachable from the runner" when a flow fails.
+      # A flow that failed half-way can leave the E2E driver with a pickup in progress, which blocks the next run.
+      - name: Remove leftover E2E pickups on UAT
+        if: env.SKIP != 'true' && env.E2E_READY == 'true'
+        env:
+          E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          E2E_READY: ${{ vars.E2E_READY || secrets.E2E_READY }}
+        run: |
+          API=https://uat.ausflow.saulxj.ggff.net/api
+          TOKEN=$(curl -sS -m 30 -X POST -H 'Content-Type: application/json' \
+            -d "{\"username\":\"$E2E_USERNAME\",\"password\":\"$E2E_PASSWORD\"}" "$API/login" | jq -r '.token // empty')
+          [ -n "$TOKEN" ] || { echo "::warning::Could not sign in to UAT for cleanup"; exit 0; }
+          STATE=$(curl -sS -m 120 -H "Authorization: Bearer $TOKEN" "$API/state")
+          IDS=$(echo "$STATE" | jq -c '[.data.pickups[] | select(.status == "ongoing" and ((.driverId // "") | startswith("E2E-"))) | .id]')
+          if [ "$IDS" = "[]" ]; then echo "Nothing to clean up"; exit 0; fi
+          echo "Deleting leftover E2E pickups: $IDS"
+          echo "$STATE" | jq -c --argjson ids "$IDS" '{upserts: {}, deletes: {pickups: $ids}, seq: .seq}' \
+            | curl -sS -m 60 -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d @- "$API/sync"
+
       - name: Check UAT is reachable
         if: env.SKIP != 'true'
         run: |

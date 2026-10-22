@@ -23,7 +23,7 @@ export default function Profile() {
     const waiting = pending ? ` ${pending} item(s) waiting to be sent stay on this phone and go out after you sign in again.` : ''
     Alert.alert('Sign out?', `You will need your password to sign in again.${waiting}`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: signOut },
+      { text: 'Yes, sign out', style: 'destructive', onPress: signOut },
     ])
   }
 
@@ -45,7 +45,7 @@ export default function Profile() {
   const status = !online ? 'Offline' : syncing ? 'Sending…' : pending ? 'Waiting to send' : 'Up to date'
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ paddingBottom: 120 }}>
       <ScreenHeader title="Me" />
       <View style={{ paddingHorizontal: 16 }}>
         <Card style={s.user}>

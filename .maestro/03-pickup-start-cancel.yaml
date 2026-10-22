@@ -52,10 +52,9 @@ tags:
 - tapOn:
     id: "job-cancel"
 - assertVisible: "Cancel this pickup\\?"
-- tapOn:
-    text: "Cancel pickup"
-    index: 1
+- tapOn: "Yes, cancel"
+# Cancelling goes back to where the scan started: Today.
 - extendedWaitUntil:
     visible:
-      id: "device-start"
+      id: "today-scan"
     timeout: 30000
