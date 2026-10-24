@@ -1,4 +1,4 @@
-import { dashboardSummary, deviceCounts, dueBuckets, filterDevices, overdueByCompany, pickupsPerDay, sortByDue } from '../admin'
+import { dashboardSummary, deviceCounts, dueBuckets, filterDevices, legsOf, overdueByCompany, pickupsPerDay, sortByDue, workDays } from '../admin'
 import type { AppData, Device, Pickup } from '../types'
 
 const DAY = 864e5
@@ -53,4 +53,29 @@ test('dashboard summary compares this week with last', () => {
   expect(s.trend).toBe(100)
   expect(s.flagged).toBe(1)
   expect(s.compliance).toBe(50)
+})
+
+test('work days group a driver activity by day with hours and flags', () => {
+  const d = {
+    pickups: [
+      pick('a', 0, { driverId: 'D', startAt: new Date(Date.now() - 3 * 3600e3).toISOString(), endAt: new Date(Date.now() - 2.5 * 3600e3).toISOString() }),
+      pick('b', 0, { driverId: 'D', startAt: new Date(Date.now() - 1 * 3600e3).toISOString(), endAt: new Date(Date.now() - 0.5 * 3600e3).toISOString(), flags: ['nolocation'] }),
+      pick('c', 3, { driverId: 'D' }),
+      pick('x', 0, { driverId: 'OTHER' }),
+    ],
+    unloads: [{ id: 'u1', vehicleId: 'V', driverId: 'D', volume: 2000, at: new Date(Date.now() - 0.2 * 3600e3).toISOString() }],
+    transfers: [],
+  } as unknown as AppData
+  const days = workDays(d, { driverId: 'D' })
+  expect(days).toHaveLength(2)
+  expect(days[0].jobs).toBe(2)
+  expect(days[0].litres).toBe(2000)
+  expect(days[0].flags).toBe(1)
+  expect(days[0].minutes).toBeGreaterThanOrEqual(167)
+  expect(days[0].events.map((e) => e.kind)).toEqual(['pickup', 'pickup', 'unload'])
+  const legs = legsOf(days[0].events, () => 1000)
+  expect(legs[0].metres).toBeNull()
+  expect(legs[1].minutes).toBe(120)
+  expect(legs[1].slow).toBe(false)
+  expect(legs[2].metres).toBe(1000)
 })

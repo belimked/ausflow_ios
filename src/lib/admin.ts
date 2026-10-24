@@ -106,3 +106,87 @@ export function dashboardSummary(d: AppData, now = Date.now()) {
     flagged, ongoing, openIssues: d.reportedIssues.filter((i) => i.status !== 'resolved').length,
   }
 }
+
+// ---- Driver and vehicle activity ---------------------------------------------------------------------
+
+export type DayEvent =
+  | { kind: 'pickup'; at: string; id: string; volume: number; lat?: number | null; lng?: number | null; ref: Pickup; flags: string[] }
+  | { kind: 'unload'; at: string; id: string; volume: number; lat?: number | null; lng?: number | null; facilityId?: string | null }
+  | { kind: 'transfer'; at: string; id: string; volume: number; lat?: number | null; lng?: number | null; out: boolean; otherVehicleId: string }
+
+export interface Leg { event: DayEvent; fromAt: string | null; minutes: number | null; metres: number | null; slow: boolean }
+
+export interface WorkDay { day: string; events: DayEvent[]; jobs: number; litres: number; firstAt: string; lastAt: string; minutes: number; flags: number }
+
+// A leg with no event for this long is flagged "slow" (same idea as the web console's driver log).
+export const SLOW_LEG_MINUTES = 120
+
+type Activity = Pick<AppData, 'pickups' | 'transfers' | 'unloads'>
+
+function eventsFor(d: Activity, match: { driverId?: string; vehicleId?: string }): DayEvent[] {
+  const ok = (r: { driverId?: string | null; vehicleId?: string | null }) =>
+    (match.driverId ? r.driverId === match.driverId : true) && (match.vehicleId ? r.vehicleId === match.vehicleId : true)
+  const out: DayEvent[] = []
+  for (const p of d.pickups) {
+    if (!isDone(p) || !ok(p)) continue
+    out.push({ kind: 'pickup', at: p.endAt!, id: p.id, volume: p.volume || 0, lat: p.endLat ?? p.startLat, lng: p.endLng ?? p.startLng, ref: p, flags: p.flags || [] })
+  }
+  for (const u of d.unloads) {
+    if (!ok(u)) continue
+    out.push({ kind: 'unload', at: u.at, id: u.id, volume: u.volume || 0, lat: u.lat, lng: u.lng, facilityId: u.facilityId })
+  }
+  for (const t of d.transfers) {
+    const mine = match.vehicleId ? (t.fromVehicleId === match.vehicleId || t.toVehicleId === match.vehicleId) : ok(t)
+    if (!mine) continue
+    const out_ = match.vehicleId ? t.fromVehicleId === match.vehicleId : true
+    out.push({ kind: 'transfer', at: t.at, id: t.id, volume: t.volume || 0, lat: t.lat, lng: t.lng, out: out_, otherVehicleId: out_ ? t.toVehicleId : t.fromVehicleId })
+  }
+  return out.sort((a, b) => a.at.localeCompare(b.at))
+}
+
+const dayKey = (iso: string) => iso.slice(0, 10)
+
+// Working days, newest first: one row per calendar day with activity.
+export function workDays(d: Activity, match: { driverId?: string; vehicleId?: string }): WorkDay[] {
+  const byDay = new Map<string, DayEvent[]>()
+  for (const e of eventsFor(d, match)) {
+    const k = dayKey(e.at)
+    if (!byDay.has(k)) byDay.set(k, [])
+    byDay.get(k)!.push(e)
+  }
+  return [...byDay.entries()].map(([day, events]) => {
+    const pickups = events.filter((e) => e.kind === 'pickup') as Extract<DayEvent, { kind: 'pickup' }>[]
+    const firstAt = pickups[0]?.ref.startAt || events[0].at
+    const lastAt = events[events.length - 1].at
+    return {
+      day, events, jobs: pickups.length, litres: pickups.reduce((n, p) => n + p.volume, 0), firstAt, lastAt,
+      minutes: Math.max(0, Math.round((new Date(lastAt).getTime() - new Date(firstAt).getTime()) / 60000)),
+      flags: pickups.filter((p) => p.flags.length).length,
+    }
+  }).sort((a, b) => b.day.localeCompare(a.day))
+}
+
+// The legs of one day: time and straight-line distance from the previous event to each event.
+export function legsOf(events: DayEvent[], distance: (a: DayEvent, b: DayEvent) => number | null): Leg[] {
+  return events.map((e, i) => {
+    const prev = i ? events[i - 1] : null
+    const fromAt = prev ? prev.at : (e.kind === 'pickup' ? e.ref.startAt || null : null)
+    const minutes = fromAt ? Math.max(0, Math.round((new Date(e.at).getTime() - new Date(fromAt).getTime()) / 60000)) : null
+    return { event: e, fromAt, minutes, metres: prev ? distance(prev, e) : null, slow: minutes != null && minutes > SLOW_LEG_MINUTES }
+  })
+}
+
+// Days with any activity in the last `days` days, for a company or the whole fleet.
+export function activeDriverIds(d: Activity, days: number, now = Date.now()) {
+  const from = startOfDay(new Date(now)) - (days - 1) * DAY
+  const ids = new Set<string>()
+  for (const p of d.pickups) if (p.driverId && (p.status === 'ongoing' || (isDone(p) && new Date(p.endAt!).getTime() >= from))) ids.add(p.driverId)
+  return ids
+}
+
+// Company kinds, stored as a JSON array string (web console `companyTypes`); default transport.
+export function companyTypes(c: { types?: string | string[] | null }): string[] {
+  try { return Array.isArray(c.types) ? c.types : JSON.parse(c.types || '["transport"]') } catch { return ['transport'] }
+}
+export const isOccupier = (c: { types?: string | string[] | null }) => companyTypes(c).includes('occupier')
+export const isTransport = (c: { types?: string | string[] | null }) => companyTypes(c).includes('transport')

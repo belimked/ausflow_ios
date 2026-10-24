@@ -41,8 +41,8 @@ export default function AdminMe() {
       <ScrollView contentContainerStyle={s.body}>
         <Text style={s.sec}>Console</Text>
         <ACard>
-          <ARow icon="building.2.fill" title="Companies & people" subtitle={`${data?.companies.length ?? 0} companies · ${data?.drivers.length ?? 0} drivers · ${data?.vehicles.length ?? 0} vehicles`} onPress={soon('Companies & people')} />
-          <ARow icon="mappin.and.ellipse" title="Locations & facilities" subtitle={`${data?.locations.length ?? 0} locations · ${data?.facilities.length ?? 0} facilities`} onPress={soon('Locations & facilities')} />
+          <ARow icon="building.2.fill" title="Companies & people" subtitle={`${data?.companies.length ?? 0} companies · ${data?.drivers.length ?? 0} drivers · ${data?.vehicles.length ?? 0} vehicles`} onPress={() => router.push('/directory')} />
+          <ARow icon="mappin.and.ellipse" title="Locations & facilities" subtitle={`${data?.locations.length ?? 0} locations · ${data?.facilities.length ?? 0} facilities`} onPress={() => router.push({ pathname: '/directory', params: { tab: 'locations' } })} />
           <ARow icon="exclamationmark.bubble.fill" iconTone={openIssues ? 'rose' : 'blue'} title="Reported issues" subtitle={openIssues ? `${openIssues} open` : 'Nothing open'} onPress={() => router.navigate({ pathname: '/devices', params: { filter: 'all' } })} />
           <ARow icon="bell.fill" title="Alerts" subtitle="Derived from the same rules as the web console" onPress={soon('Alerts')} />
           <ARow icon="text.bubble.fill" title="Ops tickets" subtitle="Email tickets handled by the office" onPress={soon('Ops tickets')} last />

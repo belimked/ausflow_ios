@@ -16,7 +16,7 @@ export default function DeviceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { data, profile, canWrite, startJob, serviceOnly } = useStore()
+  const { data, profile, canWrite, startJob, serviceOnly, viewMode } = useStore()
   const ix = useIndex()
   const [here, setHere] = useState<Coords | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -174,10 +174,11 @@ export default function DeviceScreen() {
 
         <SectionTitle title="Location" />
         <Card style={s.group}>
-          <Row icon="mappin.and.ellipse" title={loc?.name || 'Unknown location'} subtitle={addressOf(loc) || 'No address on file'} />
+          <Row icon="mappin.and.ellipse" title={loc?.name || 'Unknown location'} subtitle={addressOf(loc) || 'No address on file'} onPress={viewMode === 'admin' && loc ? () => router.push(`/location/${loc.id}`) : undefined} />
           {dev.locationDesc ? (<><Divider /><Row icon="text.bubble.fill" tone="neutral" title="Where to find it" subtitle={dev.locationDesc} /></>) : null}
           {dev.comments ? (<><Divider /><Row icon="note.text" tone="neutral" title="Comments" subtitle={dev.comments} /></>) : null}
-          {company ? (<><Divider /><Row icon="building.2.fill" tone="neutral" title={company.name} subtitle="Responsible transport company" /></>) : null}
+          {company ? (<><Divider /><Row icon="building.2.fill" tone="neutral" title={company.name} subtitle="Responsible transport company" onPress={viewMode === 'admin' ? () => router.push(`/company/${company.id}`) : undefined} /></>) : null}
+          {viewMode === 'admin' && dev.ownerId && ix.companies.get(dev.ownerId) ? (<><Divider /><Row icon="storefront.fill" tone="neutral" title={ix.companies.get(dev.ownerId)!.name} subtitle="Occupier" onPress={() => router.push(`/occupier/${dev.ownerId}`)} /></>) : null}
           {dev.lat != null ? (<><Divider /><Row icon="arrow.triangle.turn.up.right.diamond.fill" tone="success" title="Directions" subtitle="Open in Apple Maps" onPress={directions} /></>) : null}
         </Card>
 
