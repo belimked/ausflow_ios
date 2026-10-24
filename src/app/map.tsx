@@ -1,7 +1,7 @@
 import { AppleMaps } from 'expo-maps'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMemo, useState } from 'react'
-import { Linking, Platform, StyleSheet, Text, View } from 'react-native'
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ACard, Segmented, Tag } from '@/components/admin'
 import { Icon } from '@/components/ui'
@@ -62,7 +62,7 @@ export default function MapScreen() {
 
       <View style={[s.top, { paddingTop: insets.top + 6 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text onPress={() => router.back()} style={s.btn} accessibilityRole="button" accessibilityLabel="Back"><Icon name="chevron.left" size={18} color={c.body} /></Text>
+          <Pressable onPress={() => router.back()} style={s.btn} accessibilityRole="button" accessibilityLabel="Back"><Icon name="chevron.left" size={18} color={c.body} /></Pressable>
           <View style={[s.chipBox, { flex: 1 }]}><Text style={s.chipText} numberOfLines={1}>{v.shown.length} device{v.shown.length === 1 ? '' : 's'} on map · {v.bySite.size} site{v.bySite.size === 1 ? '' : 's'}</Text></View>
         </View>
         <Segmented options={[{ key: 'overdue', label: 'Overdue' }, { key: 'soon', label: 'Due soon' }, { key: 'all', label: 'All active' }] as { key: Filter; label: string }[]} value={filter} onChange={setFilter} style={s.seg} />
@@ -100,7 +100,7 @@ export default function MapScreen() {
 
 const s = StyleSheet.create({
   top: { position: 'absolute', left: 16, right: 16, top: 0, gap: 10 },
-  btn: { width: 40, height: 40, lineHeight: 40, textAlign: 'center', borderRadius: 10, backgroundColor: 'rgba(255,255,255,.95)', overflow: 'hidden' },
+  btn: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(255,255,255,.95)', borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', shadowColor: '#0f172a', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
   chipBox: { height: 40, borderRadius: 10, backgroundColor: 'rgba(255,255,255,.95)', justifyContent: 'center', paddingHorizontal: 12 },
   chipText: { fontSize: 13, color: c.muted },
   seg: { backgroundColor: 'rgba(255,255,255,.92)', alignSelf: 'flex-start' },

@@ -1,7 +1,7 @@
 import { AppleMaps } from 'expo-maps'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMemo, useState } from 'react'
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ACard, Tag } from '@/components/admin'
 import { Icon } from '@/components/ui'
@@ -62,9 +62,9 @@ export default function RouteMap() {
           onMarkerClick={(m) => { if (m.id && m.id !== 'now') setPicked(Number(m.id)) }} uiSettings={{ compassEnabled: true, myLocationButtonEnabled: false, scaleBarEnabled: false, togglePitchEnabled: false }} />
       ) : null}
       <View style={[s.top, { paddingTop: insets.top + 6 }]}>
-        <Text onPress={() => router.back()} style={s.btn} accessibilityRole="button" accessibilityLabel="Back"><Icon name="chevron.left" size={18} color={c.body} /></Text>
+        <Pressable onPress={() => router.back()} style={s.btn} accessibilityRole="button" accessibilityLabel="Back"><Icon name="chevron.left" size={18} color={c.body} /></Pressable>
         <View style={[s.chipBox, { flex: 1 }]}>
-          <Text style={s.chipTitle} numberOfLines={1}>{driver?.name || 'Driver'} · {v?.d ? fmtDay(v.d.day + 'T12:00:00') : 'today'}</Text>
+          <Text style={s.chipTitle} numberOfLines={1}>{driver?.name || 'Driver'} · {v?.d ? (v.d.day === new Date().toISOString().slice(0, 10) ? 'Today' : fmtDay(v.d.day + 'T12:00:00')) : day ? fmtDay(day + 'T12:00:00') : 'Today'}</Text>
           <Text style={s.chipSub} numberOfLines={1}>{v?.d ? `${v.d.jobs} jobs · ${fmtL(v.d.litres)} · ${fmtM(v.km)} straight-line` : 'No activity recorded'}</Text>
         </View>
         {v?.ongoing ? <Tag label="Live" tone="blue" /> : null}
@@ -94,7 +94,7 @@ export default function RouteMap() {
 
 const s = StyleSheet.create({
   top: { position: 'absolute', left: 16, right: 16, top: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  btn: { width: 40, height: 40, lineHeight: 40, textAlign: 'center', borderRadius: 10, backgroundColor: 'rgba(255,255,255,.95)', overflow: 'hidden' },
+  btn: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(255,255,255,.95)', borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', shadowColor: '#0f172a', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
   chipBox: { height: 44, borderRadius: 10, backgroundColor: 'rgba(255,255,255,.95)', justifyContent: 'center', paddingHorizontal: 12 },
   chipTitle: { fontSize: 13, fontWeight: '600', color: c.text },
   chipSub: { fontSize: 11, color: c.faint, fontFamily: 'Menlo' },
