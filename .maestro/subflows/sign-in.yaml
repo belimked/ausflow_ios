@@ -69,6 +69,16 @@ appId: com.ausflow
     visible: "Not Now|Good (morning|afternoon|evening).*"
     timeout: 60000
 - runFlow: dismiss-save-password.yaml
+# The sheet can also arrive a few seconds after Today is already showing and then hides the greeting from Maestro;
+# wait for either again and dismiss, up to three rounds, before insisting on the greeting.
+- extendedWaitUntil:
+    visible: "Not Now|Good (morning|afternoon|evening).*"
+    timeout: 30000
+- runFlow: dismiss-save-password.yaml
+- extendedWaitUntil:
+    visible: "Not Now|Good (morning|afternoon|evening).*"
+    timeout: 15000
+- runFlow: dismiss-save-password.yaml
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening).*"
     timeout: 30000
