@@ -66,7 +66,7 @@ export default function VehicleScreen() {
             <KV label="Type" value={vehicle.type || '—'} right />
           </View>
           <View style={{ flexDirection: 'row' }}>
-            <KV label="QR code" value={<Text style={s.mono}>{vehicle.qr || 'None'}</Text>} last />
+            <KV label="QR code" value={<LinkText label={`${vehicle.qr || vehicle.id} · sticker ›`} onPress={() => router.push({ pathname: '/qr', params: { kind: 'vehicle', id: vehicle.id } })} />} last />
             <KV label="Vehicle ID" value={<Text style={s.mono}>{vehicle.id}</Text>} right last />
           </View>
         </ACard>

@@ -32,6 +32,7 @@ export default function DriverScreen() {
   if (!driver || !v) return <View style={{ flex: 1, backgroundColor: c.bg }}><Stack.Screen options={{ headerShown: false }} /><AHeader title="Driver" back={() => router.back()} /><Text style={s.empty}>Not found.</Text></View>
   const company = driver.companyId ? ix.companies.get(driver.companyId) : undefined
   const shown: WorkDay | undefined = tab === 'today' ? v.days.find((d) => d.day === v.todayKey) : v.days.find((d) => d.day === dayKey) || v.days[0]
+  const shownDay = shown?.day || v.todayKey
   const legs = shown ? legsOf(shown.events, (a, b) => distanceM(a.lat, a.lng, b.lat, b.lng)) : []
   const ini = driver.name.split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase()
 
@@ -45,7 +46,10 @@ export default function DriverScreen() {
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
       <AHeader eyebrow="DRIVER" title={driver.name} back={() => router.back()}
-        right={driver.phone ? <IconButton name="phone.fill" label="Call driver" onPress={() => Linking.openURL(`tel:${driver.phone}`)} /> : undefined}>
+        right={<View style={{ flexDirection: 'row', gap: 8 }}>
+          <IconButton name="map.fill" label="Route map" onPress={() => router.push({ pathname: '/routemap', params: { driverId: id, day: shownDay } })} />
+          {driver.phone ? <IconButton name="phone.fill" label="Call driver" onPress={() => Linking.openURL(`tel:${driver.phone}`)} /> : null}
+        </View>}>
         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           <View style={s.avatar}><Text style={s.avatarText}>{ini}</Text></View>
           {v.ongoing ? <Tag label={`On job · ${deviceTitle(ix.devices.get(v.ongoing.deviceId || ''), ix.locations.get(v.ongoing.locationId || ''))}`} tone="blue" /> : <Tag label={driver.status || 'Active'} tone={driver.status === 'Active' || !driver.status ? 'green' : 'slate'} />}

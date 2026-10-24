@@ -47,7 +47,8 @@ export default function AdminMe() {
           <ARow icon="mappin.and.ellipse" title="Locations & facilities" subtitle={`${data?.locations.length ?? 0} locations · ${data?.facilities.length ?? 0} facilities`} onPress={() => router.push({ pathname: '/directory', params: { tab: 'locations' } })} />
           <ARow icon="exclamationmark.bubble.fill" iconTone={openIssues ? 'rose' : 'blue'} title="Reported issues" subtitle={openIssues ? `${openIssues} open` : 'Nothing open'} onPress={() => router.navigate({ pathname: '/devices', params: { filter: 'all' } })} />
           <ARow icon="bell.fill" iconTone={alerts.unread ? 'rose' : 'blue'} title="Alerts" subtitle={`${alerts.active} open · ${alerts.unread} unread`} onPress={() => router.push('/alerts')} right={alerts.unread ? <View style={s.cnt}><Text style={s.cntText}>{alerts.unread}</Text></View> : undefined} />
-          <ARow icon="text.bubble.fill" title="Ops tickets" subtitle="Email tickets handled by the office" onPress={() => router.push('/tickets')} last />
+          <ARow icon="text.bubble.fill" title="Ops tickets" subtitle="Email tickets handled by the office" onPress={() => router.push('/tickets')} />
+          <ARow icon="qrcode" title="QR codes & labels" subtitle="Device labels, vehicle stickers, driver badges" onPress={() => router.push('/qr')} last />
         </ACard>
 
         <Text style={s.sec}>Account</Text>
