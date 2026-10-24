@@ -10,7 +10,7 @@ import * as storage from './offline/storage'
 import { PHOTO_TARGET } from './photos'
 import { defaultViewMode, type ViewMode } from './role'
 import { flush, submit as submitCommand, type NewPhoto, type OutboxDeps, type PhotoTarget } from './outbox'
-import type { AppData, Coords, IssueCategory, Pickup, ReportedIssue, Transfer, Unload, User, WorkProfile } from './types'
+import type { AlertNote, AlertStatus, AppData, Coords, IssueCategory, Pickup, ReportedIssue, Transfer, Unload, User, WorkProfile } from './types'
 
 export { findDeviceByCode } from './codes'
 
@@ -53,6 +53,9 @@ interface Store {
   reportIssue: (deviceId: string, input: { category: IssueCategory; description: string }, photos: NewPhoto[]) => Promise<{ issue: ReportedIssue; queued: boolean }>
   unload: (input: { facilityId: string; volume: number; waste: string; coords: Coords | null }) => Promise<Unload>
   transfer: (toVehicleId: string, coords: Coords | null) => Promise<Transfer>
+  setAlertStatus: (alertId: string, status: AlertStatus, reason: string) => Promise<AlertNote>
+  addAlertNote: (alertId: string, text: string) => Promise<AlertNote>
+  markAlertsRead: (alertIds: string[]) => Promise<void>
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -338,15 +341,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const transfer = useCallback(async (toVehicleId: string, coords: Coords | null) =>
     (await submit<Transfer>({ kind: 'transfer', at: now(), profile: needProfile(profile), toVehicleId, coords })).result, [profile, submit])
 
+  const setAlertStatus = useCallback(async (alertId: string, status: AlertStatus, reason: string) =>
+    (await submit<AlertNote>({ kind: 'alertStatus', at: now(), alertId, status, reason, userName: userName() })).result, [submit])
+  const addAlertNote = useCallback(async (alertId: string, text: string) =>
+    (await submit<AlertNote>({ kind: 'alertNote', at: now(), alertId, text, userName: userName() })).result, [submit])
+  const markAlertsRead = useCallback(async (alertIds: string[]) => {
+    if (alertIds.length) await submit<number>({ kind: 'alertRead', at: now(), alertIds })
+  }, [submit])
+
   const canWrite = !!session && ['admin', 'ops', 'authority'].includes(session.user.role)
 
   const value = useMemo<Store>(() => ({
     ready, session, data, loading, error, loadedAt, profile, canWrite, viewMode, setViewMode, online, pending: queue.length, syncing, problems,
     signIn, signOut: clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile, updateDetails,
-    startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer,
+    startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer, setAlertStatus, addAlertNote, markAlertsRead,
   }), [ready, session, data, loading, error, loadedAt, profile, canWrite, viewMode, setViewMode, online, queue, syncing, problems,
     signIn, clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile, updateDetails,
-    startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer])
+    startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer, setAlertStatus, addAlertNote, markAlertsRead])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

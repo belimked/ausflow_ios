@@ -76,6 +76,12 @@ export function alreadyApplied(d: AppData, cmd: Command): string | null {
       return d.unloads.find((u) => u.vehicleId === cmd.profile.vehicleId && u.at === cmd.at)?.id ?? null
     case 'transfer':
       return d.transfers.find((t) => t.fromVehicleId === cmd.profile.vehicleId && t.toVehicleId === cmd.toVehicleId && t.at === cmd.at)?.id ?? null
+    case 'alertStatus':
+      return d.alertNotes.find((n) => n.alertId === cmd.alertId && n.kind === 'status' && n.at === cmd.at)?.id ?? null
+    case 'alertNote':
+      return d.alertNotes.find((n) => n.alertId === cmd.alertId && n.kind === 'note' && n.at === cmd.at)?.id ?? null
+    case 'alertRead':
+      return cmd.alertIds.every((id) => d.alertReads.some((r) => r.id === id)) ? '' : null
   }
 }
 

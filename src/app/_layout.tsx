@@ -46,6 +46,10 @@ function RootStack() {
         <Stack.Screen name="vehicle" options={{ title: 'On board' }} />
         <Stack.Screen name="details" options={{ title: 'My details', presentation: 'modal' }} />
         <Stack.Screen name="directory" options={{ headerShown: false }} />
+        <Stack.Screen name="alerts" options={{ headerShown: false }} />
+        <Stack.Screen name="alert/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="tickets" options={{ headerShown: false }} />
+        <Stack.Screen name="ticket/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="company/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="driver/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="vehicle/[id]" options={{ headerShown: false }} />

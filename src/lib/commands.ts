@@ -5,7 +5,7 @@ import { distanceM } from './geo-math'
 import { PREFIX, nextId } from './ids'
 import { ISSUE_CATEGORIES } from './issues'
 import { vehicleLoads } from './load'
-import type { AppData, ChangeLog, Coords, Device, IssueCategory, Pickup, PickupFlag, ReportedIssue, Transfer, Unload, WorkProfile } from './types'
+import type { AlertNote, AlertStatus, AppData, ChangeLog, Coords, Device, IssueCategory, Pickup, PickupFlag, ReportedIssue, Transfer, Unload, WorkProfile } from './types'
 import { DEFAULT_WASTE } from './waste'
 
 // Every write is a command: plain data describing what the driver did and when. planCommand() turns it into a
@@ -23,6 +23,10 @@ export type Command =
   | { kind: 'unload'; at: string; profile: WorkProfile; facilityId: string; volume: number; waste: string; coords: Coords | null }
   // Old WasteID "Transfer All Waste" from the driver's vehicle to another vehicle of the company.
   | { kind: 'transfer'; at: string; profile: WorkProfile; toVehicleId: string; coords: Coords | null }
+  // Console follow-up on a derived alert (web console setAlertStatus / addAlertNote / markRead).
+  | { kind: 'alertStatus'; at: string; alertId: string; status: AlertStatus; reason: string; userName: string }
+  | { kind: 'alertNote'; at: string; alertId: string; text: string; userName: string }
+  | { kind: 'alertRead'; at: string; alertIds: string[] }
 
 // A rule the current server state does not allow; the message is shown to the driver as is.
 export class CommandError extends Error {}
@@ -179,6 +183,40 @@ export function planTransfer(d: AppData, c: Extract<Command, { kind: 'transfer' 
   return { sync: { upserts: { transfers: [transfer] }, seq }, result: transfer }
 }
 
+function alertEntry(seq: Record<string, number>, rows: AlertNote[], entry: Omit<AlertNote, 'id'>) {
+  const n = nextId({ seq }, PREFIX.alertNote, rows)
+  return { note: { id: n.id, ...entry }, seq: n.seq }
+}
+
+// Clearing or dismissing needs a reason; it is saved as a note right before the status entry, as the console does.
+export function planAlertStatus(d: AppData, c: Extract<Command, { kind: 'alertStatus' }>) {
+  const reason = c.reason.trim()
+  if (['cleared', 'dismissed'].includes(c.status) && !reason) throw new CommandError('Give a reason.')
+  const notes: AlertNote[] = []
+  let seq = d.seq
+  let rows = d.alertNotes
+  if (reason) {
+    const r = alertEntry(seq, rows, { alertId: c.alertId, kind: 'note', status: null, text: reason, user: c.userName, at: c.at })
+    notes.push(r.note); seq = r.seq; rows = [...rows, r.note]
+  }
+  const st = alertEntry(seq, rows, { alertId: c.alertId, kind: 'status', status: c.status, text: '', user: c.userName, at: c.at })
+  notes.push(st.note)
+  return { sync: { upserts: { alertNotes: notes, alertReads: [{ id: c.alertId }] }, seq: st.seq }, result: st.note }
+}
+
+export function planAlertNote(d: AppData, c: Extract<Command, { kind: 'alertNote' }>) {
+  const text = c.text.trim()
+  if (!text) throw new CommandError('Write a note.')
+  const r = alertEntry(d.seq, d.alertNotes, { alertId: c.alertId, kind: 'note', status: null, text, user: c.userName, at: c.at })
+  return { sync: { upserts: { alertNotes: [r.note] }, seq: r.seq }, result: r.note }
+}
+
+export function planAlertRead(d: AppData, c: Extract<Command, { kind: 'alertRead' }>) {
+  const have = new Set(d.alertReads.map((r) => r.id))
+  const rows = c.alertIds.filter((id) => !have.has(id)).map((id) => ({ id }))
+  return { sync: rows.length ? { upserts: { alertReads: rows }, seq: d.seq } : null, result: rows.length }
+}
+
 export function planCommand(d: AppData, c: Command): Plan {
   switch (c.kind) {
     case 'startPickup': return planStartPickup(d, c)
@@ -188,5 +226,8 @@ export function planCommand(d: AppData, c: Command): Plan {
     case 'reportIssue': return planReportIssue(d, c)
     case 'unload': return planUnload(d, c)
     case 'transfer': return planTransfer(d, c)
+    case 'alertStatus': return planAlertStatus(d, c)
+    case 'alertNote': return planAlertNote(d, c)
+    case 'alertRead': return planAlertRead(d, c)
   }
 }

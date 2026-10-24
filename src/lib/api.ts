@@ -1,5 +1,5 @@
 import { API_BASE } from './config'
-import type { AppData, Photo, Pickup, User } from './types'
+import type { AppData, Photo, Pickup, PublicUser, Ticket, TicketNote, TicketPriority, TicketStatus, User } from './types'
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -43,8 +43,19 @@ export async function fetchState(token: string): Promise<AppData> {
     transfers: d.transfers || [],
     unloads: d.unloads || [],
     reportedIssues: d.reportedIssues || [],
+    alertNotes: d.alertNotes || [],
+    alertReads: d.alertReads || [],
   }
 }
+
+// ---- Ops tickets (email tickets handled by the office; own API, not part of /state) ----
+export const listTickets = (token: string) => request<Ticket[]>('/tickets', token)
+export const getTicket = (token: string, id: string) => request<Ticket>(`/tickets/${encodeURIComponent(id)}`, token)
+export const ticketNotes = (token: string, id: string) => request<TicketNote[]>(`/tickets/${encodeURIComponent(id)}/notes`, token)
+export const patchTicket = (token: string, id: string, body: { status?: TicketStatus; priority?: TicketPriority; assigneeId?: string | null; note?: string }) =>
+  request<Ticket>(`/tickets/${encodeURIComponent(id)}`, token, body, 'PATCH')
+export const listUsers = (token: string) => request<PublicUser[]>('/users', token)
+export const mailboxStatus = (token: string) => request<{ address?: string; lastPollAt?: string | null; nextPollAt?: string | null; enabled?: boolean }>('/mailbox/status', token)
 
 // Id counters and the pickups in progress: enough to plan a write without downloading everything.
 export interface StateSummary { seq: Record<string, number>; ongoing: Pickup[] }

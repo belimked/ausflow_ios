@@ -14,6 +14,9 @@ export function describeItem(item: QueueItem, deviceRef: (id: string) => string 
     case 'reportIssue': return `Problem · ${issueLabel(c.category)} · ${deviceRef(c.deviceId) || c.deviceId}`
     case 'unload': return `Offload · ${fmtL(c.volume)}`
     case 'transfer': return 'Transfer all waste'
+    case 'alertStatus': return `Alert ${c.status} · ${c.alertId}`
+    case 'alertNote': return `Alert note · ${c.alertId}`
+    case 'alertRead': return `Mark ${c.alertIds.length} alert(s) read`
   }
 }
 

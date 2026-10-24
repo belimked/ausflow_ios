@@ -1,9 +1,11 @@
 import Constants from 'expo-constants'
 import { useRouter } from 'expo-router'
+import { useMemo } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { ACard, AHeader, ARow, Tag } from '@/components/admin'
 import { API_BASE, ENV_LABEL } from '@/lib/config'
 import { fmtDateTime, initials } from '@/lib/format'
+import { alertCounts, alertViews } from '@/lib/alerts'
 import { ROLE_LABEL } from '@/lib/role'
 import { useStore } from '@/lib/store'
 import { admin as c } from '@/lib/theme'
@@ -13,6 +15,7 @@ export default function AdminMe() {
   const { session, data, loadedAt, loading, refresh, signOut, online, syncing, pending, setViewMode, canWrite } = useStore()
   const user = session?.user
   const openIssues = (data?.reportedIssues || []).filter((i) => i.status !== 'resolved').length
+  const alerts = useMemo(() => alertCounts(data ? alertViews(data) : []), [data])
 
   function confirmSignOut() {
     Alert.alert('Sign out?', 'You will need your password to sign in again.', [
@@ -21,7 +24,6 @@ export default function AdminMe() {
     ])
   }
   const status = !online ? 'Offline · showing the last copy on this phone' : syncing ? 'Refreshing…' : loadedAt ? `Up to date · ${fmtDateTime(new Date(loadedAt).toISOString())}` : 'Not loaded yet'
-  const soon = (what: string) => () => Alert.alert(what, 'Coming in the next console update.')
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -44,8 +46,8 @@ export default function AdminMe() {
           <ARow icon="building.2.fill" title="Companies & people" subtitle={`${data?.companies.length ?? 0} companies · ${data?.drivers.length ?? 0} drivers · ${data?.vehicles.length ?? 0} vehicles`} onPress={() => router.push('/directory')} />
           <ARow icon="mappin.and.ellipse" title="Locations & facilities" subtitle={`${data?.locations.length ?? 0} locations · ${data?.facilities.length ?? 0} facilities`} onPress={() => router.push({ pathname: '/directory', params: { tab: 'locations' } })} />
           <ARow icon="exclamationmark.bubble.fill" iconTone={openIssues ? 'rose' : 'blue'} title="Reported issues" subtitle={openIssues ? `${openIssues} open` : 'Nothing open'} onPress={() => router.navigate({ pathname: '/devices', params: { filter: 'all' } })} />
-          <ARow icon="bell.fill" title="Alerts" subtitle="Derived from the same rules as the web console" onPress={soon('Alerts')} />
-          <ARow icon="text.bubble.fill" title="Ops tickets" subtitle="Email tickets handled by the office" onPress={soon('Ops tickets')} last />
+          <ARow icon="bell.fill" iconTone={alerts.unread ? 'rose' : 'blue'} title="Alerts" subtitle={`${alerts.active} open · ${alerts.unread} unread`} onPress={() => router.push('/alerts')} right={alerts.unread ? <View style={s.cnt}><Text style={s.cntText}>{alerts.unread}</Text></View> : undefined} />
+          <ARow icon="text.bubble.fill" title="Ops tickets" subtitle="Email tickets handled by the office" onPress={() => router.push('/tickets')} last />
         </ACard>
 
         <Text style={s.sec}>Account</Text>
@@ -77,6 +79,8 @@ const s = StyleSheet.create({
   name: { fontSize: 16, fontWeight: '700', color: c.text },
   handle: { fontSize: 11.5, color: c.faint, fontFamily: 'Menlo' },
   sec: { fontSize: 11, fontWeight: '600', letterSpacing: 0.6, color: c.faint, textTransform: 'uppercase', paddingHorizontal: 2, paddingTop: 8 },
+  cnt: { minWidth: 22, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: c.dangerSoft, alignItems: 'center', justifyContent: 'center' },
+  cntText: { fontSize: 11, fontWeight: '600', color: c.dangerText },
   signOut: { backgroundColor: c.dangerSoft, borderColor: c.dangerSoft, alignItems: 'center', paddingVertical: 13 },
   signOutText: { color: c.dangerText, fontWeight: '600', fontSize: 13 },
 })
