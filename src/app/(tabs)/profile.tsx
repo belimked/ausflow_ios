@@ -5,6 +5,7 @@ import { Button, Card, Divider, Pill, Row, ScreenHeader, SectionTitle } from '@/
 import { API_BASE, ENV_LABEL } from '@/lib/config'
 import { fmtDateTime, fmtL, fmtTime, initials } from '@/lib/format'
 import { describeItem, itemTime } from '@/lib/offline/describe'
+import { canUseConsole } from '@/lib/role'
 import { useIndex, useStore } from '@/lib/store'
 import { colors } from '@/lib/theme'
 
@@ -12,7 +13,7 @@ const ROLE: Record<string, string> = { admin: 'Admin', authority: 'Admin', ops: 
 
 export default function Profile() {
   const router = useRouter()
-  const { session, profile, loadedAt, loading, refresh, signOut, data, online, pending, syncing, problems, syncNow, retryProblem, discardProblem } = useStore()
+  const { session, profile, loadedAt, loading, refresh, signOut, data, online, pending, syncing, problems, syncNow, retryProblem, discardProblem, setViewMode } = useStore()
   const ix = useIndex()
   const user = session?.user
   const driver = profile ? ix.drivers.get(profile.driverId) : undefined
@@ -59,6 +60,12 @@ export default function Profile() {
 
         <Card style={[s.group, { marginTop: 12 }]}>
           <Row testID="my-details" icon="person.text.rectangle" tone="neutral" title="My details" subtitle="Name, email and password" onPress={() => router.push('/details')} />
+          {canUseConsole(user?.role) ? (
+            <>
+              <Divider />
+              <Row testID="my-console" icon="gauge.with.dots.needle.33percent" tone="primary" title="Switch to console view" subtitle="Dashboard, all devices and records" onPress={() => setViewMode('admin')} />
+            </>
+          ) : null}
         </Card>
 
         <SectionTitle title="Working as" />

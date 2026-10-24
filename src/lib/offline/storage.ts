@@ -63,3 +63,7 @@ export function deletePhoto(p: QueuedPhoto) {
     // already gone
   }
 }
+
+// Console / driver view preference, per user (see lib/role.ts).
+export const loadViewMode = (userId: string) => readJson<{ mode: 'admin' | 'driver' }>(`view_${safe(userId)}.json`)
+export const saveViewMode = (userId: string, mode: 'admin' | 'driver') => writeJson(`view_${safe(userId)}.json`, { mode })

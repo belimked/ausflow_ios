@@ -7,7 +7,7 @@ import { TrailerProvider } from '@/lib/trailers'
 import { colors } from '@/lib/theme'
 
 function RootStack() {
-  const { ready, session } = useStore()
+  const { ready, session, viewMode } = useStore()
   if (!ready) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary }}>
@@ -16,6 +16,7 @@ function RootStack() {
     )
   }
   const signedIn = !!session
+  const console = signedIn && viewMode === 'admin'
   return (
     <Stack screenOptions={{
       headerTintColor: colors.primary,
@@ -28,8 +29,13 @@ function RootStack() {
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={signedIn}>
+      <Stack.Protected guard={signedIn && !console}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={console}>
+        <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={signedIn}>
         <Stack.Screen name="scan" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="setup" options={{ title: 'Driver & vehicle', presentation: 'modal' }} />
         <Stack.Screen name="device/[id]" options={{ title: 'Device' }} />

@@ -8,6 +8,7 @@ import { vehicleLoads } from './load'
 import { applyPayload, localView, type QueueItem, type SyncProblem } from './offline/queue'
 import * as storage from './offline/storage'
 import { PHOTO_TARGET } from './photos'
+import { defaultViewMode, type ViewMode } from './role'
 import { flush, submit as submitCommand, type NewPhoto, type OutboxDeps, type PhotoTarget } from './outbox'
 import type { AppData, Coords, IssueCategory, Pickup, ReportedIssue, Transfer, Unload, User, WorkProfile } from './types'
 
@@ -28,6 +29,9 @@ interface Store {
   loadedAt: number | null
   profile: WorkProfile | null
   canWrite: boolean
+  // Console (admin tabs) or driver tabs; see lib/role.ts.
+  viewMode: ViewMode
+  setViewMode: (mode: ViewMode) => void
   online: boolean
   pending: number
   syncing: boolean
@@ -63,6 +67,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [loadedAt, setLoadedAt] = useState<number | null>(null)
   const [profile, setProfileState] = useState<WorkProfile | null>(null)
+  const [viewMode, setViewModeState] = useState<ViewMode>('driver')
   const [queue, setQueueState] = useState<QueueItem[]>([])
   const [problems, setProblemsState] = useState<SyncProblem[]>([])
   const [syncing, setSyncing] = useState(false)
@@ -191,13 +196,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Restore everything this user had on the phone, then go online.
   const open = useCallback(async (s: Session) => {
-    const [p, snap, q, pr] = await Promise.all([
+    const [p, snap, q, pr, vm] = await Promise.all([
       SecureStore.getItemAsync(profileKey(s.user.id)).catch(() => null),
       storage.loadSnapshot(s.user.id),
       storage.loadQueue(s.user.id),
       storage.loadProblems(s.user.id),
+      storage.loadViewMode(s.user.id),
     ])
     setProfileState(p ? JSON.parse(p) : null)
+    setViewModeState(vm?.mode || defaultViewMode(s.user.role))
     if (snap) {
       setServerData(snap.data)
       setLoadedAt(snap.loadedAt)
@@ -293,6 +300,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const resolveId = useCallback((id: string) => idMap[id] || id, [idMap])
 
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeState(mode)
+    const s = sessionRef.current
+    if (s) storage.saveViewMode(s.user.id, mode)
+  }, [])
+
   const userName = () => sessionRef.current?.user.displayName || ''
   const needProfile = (p: WorkProfile | null): WorkProfile => {
     if (!p) throw new CommandError('Choose your driver and vehicle first.')
@@ -328,10 +341,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const canWrite = !!session && ['admin', 'ops', 'authority'].includes(session.user.role)
 
   const value = useMemo<Store>(() => ({
-    ready, session, data, loading, error, loadedAt, profile, canWrite, online, pending: queue.length, syncing, problems,
+    ready, session, data, loading, error, loadedAt, profile, canWrite, viewMode, setViewMode, online, pending: queue.length, syncing, problems,
     signIn, signOut: clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile, updateDetails,
     startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer,
-  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, online, queue, syncing, problems,
+  }), [ready, session, data, loading, error, loadedAt, profile, canWrite, viewMode, setViewMode, online, queue, syncing, problems,
     signIn, clear, refresh, syncNow, retryProblem, discardProblem, resolveId, setProfile, updateDetails,
     startJob, finishJob, cancelJob, serviceOnly, reportIssue, unload, transfer])
 
