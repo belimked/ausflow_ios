@@ -171,13 +171,31 @@ jobs:
           fi
           [ "$EXCLUDE" = data ] && [ "$TAGS" != smoke ] && echo "::warning::E2E_COMPANY / E2E_PLATE / E2E_DEVICE variables are not set; flows tagged data are skipped."
           echo "Include: $TAGS · exclude: $EXCLUDE"
-          maestro --device "$UDID" test .maestro \
-            --include-tags "$TAGS" --exclude-tags "$EXCLUDE" \
-            --format junit --output "$RUNNER_TEMP/maestro-report.xml" \
-            --debug-output "$RUNNER_TEMP/maestro-debug" --test-output-dir "$RUNNER_TEMP/maestro-debug" \
-            -e E2E_USERNAME="$E2E_USERNAME" -e E2E_PASSWORD="$E2E_PASSWORD" \
-            -e E2E_COMPANY="$E2E_COMPANY" -e E2E_DRIVER="${E2E_DRIVER:-__none__}" \
-            -e E2E_PLATE="$E2E_PLATE" -e E2E_DEVICE="$E2E_DEVICE"
+          # One maestro invocation per flow, two attempts each: the XCTest driver on the hosted simulator dies now
+          # and then (typically right after the Save Password sheet), which used to fail every later flow in the
+          # same invocation within seconds. A fresh invocation restarts the driver.
+          FAILED=()
+          for flow in .maestro/[0-9]*.yaml; do
+            name=$(basename "$flow" .yaml)
+            ok=0
+            for attempt in 1 2; do
+              echo "::group::$name · attempt $attempt"
+              if maestro --device "$UDID" test "$flow" \
+                  --include-tags "$TAGS" --exclude-tags "$EXCLUDE" \
+                  --format junit --output "$RUNNER_TEMP/maestro-report-$name-$attempt.xml" \
+                  --debug-output "$RUNNER_TEMP/maestro-debug" --test-output-dir "$RUNNER_TEMP/maestro-debug" \
+                  -e E2E_USERNAME="$E2E_USERNAME" -e E2E_PASSWORD="$E2E_PASSWORD" \
+                  -e E2E_COMPANY="$E2E_COMPANY" -e E2E_DRIVER="${E2E_DRIVER:-__none__}" \
+                  -e E2E_PLATE="$E2E_PLATE" -e E2E_DEVICE="$E2E_DEVICE"; then
+                ok=1; echo "::endgroup::"; break
+              fi
+              echo "::endgroup::"
+              [ $attempt = 1 ] && echo "::warning::$name failed on attempt 1; retrying with a fresh driver"
+            done
+            [ $ok = 1 ] || FAILED+=("$name")
+          done
+          if [ ${#FAILED[@]} -gt 0 ]; then echo "::error::Flows failed after retry: ${FAILED[*]}"; exit 1; fi
+          echo "All flows passed"
 
       # Tester-guide screenshots: one flow that walks the screens; the PNGs are shrunk to JPEG for embedding.
       - name: Capture screenshots for the tester guide
@@ -222,7 +240,7 @@ jobs:
         with:
           name: maestro-${{ github.run_number }}
           path: |
-            ${{ runner.temp }}/maestro-report.xml
+            ${{ runner.temp }}/maestro-report-*.xml
             ${{ runner.temp }}/maestro-debug
           retention-days: 14
           if-no-files-found: ignore
