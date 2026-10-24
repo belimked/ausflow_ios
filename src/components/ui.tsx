@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, t
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, radius, shadow } from '@/lib/theme'
 
-type SfName = Extract<SymbolViewProps['name'], string>
+export type SfName = Extract<SymbolViewProps['name'], string>
 
 export function Icon({ name, size = 20, color = colors.text, weight = 'semibold' }: { name: SfName; size?: number; color?: string; weight?: SymbolViewProps['weight'] }) {
   // Decorative: without this the symbol name ("person.fill", "Building") is read by VoiceOver and prefixed to every
