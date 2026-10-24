@@ -10,6 +10,7 @@ import { admin as c } from '@/lib/theme'
 
 const DAYS = 14
 const dayLabel = (t: number, i: number) => (i % 3 === 0 ? new Date(t).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : null)
+const dayFull = (t: number) => new Date(t).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
 
 export default function Dashboard() {
   const router = useRouter()
@@ -72,9 +73,10 @@ export default function Dashboard() {
             badge={v?.sum.flagged ? `${v.sum.flagged} flagged` : undefined} badgeTone="rose" note="Reported by drivers" />
         </View>
 
-        <SectionCard title="Pump-outs" sub={`Completed per day · last ${DAYS} days`}>
+        <SectionCard title="Pump-outs" sub={`Completed per day · last ${DAYS} days · touch a bar for details`}>
           <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
-            <Bars rows={v?.days.map((d) => d.count) || []} labels={v?.days.map((d, i) => dayLabel(d.day, i))} />
+            <Bars rows={v?.days.map((d) => d.count) || []} labels={v?.days.map((d, i) => dayLabel(d.day, i))}
+              tooltip={(i) => { const d = v!.days[i]; return `${dayFull(d.day)} · ${d.count} pump-out${d.count === 1 ? '' : 's'} · ${fmtL(d.litres)}` }} />
           </View>
         </SectionCard>
 

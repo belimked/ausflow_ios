@@ -73,7 +73,7 @@ export default function VehicleScreen() {
 
         <SectionCard title="Loads · last 7 days" sub={`${fmtL(v.week.reduce((n, d) => n + d.litres, 0))} collected`} right={<LinkText label="Records" onPress={() => router.navigate('/records')} />}>
           <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
-            <Bars rows={v.week.map((d) => d.litres)} labels={v.week.map((d) => d.label)} height={64} />
+            <Bars rows={v.week.map((d) => d.litres)} labels={v.week.map((d) => d.label)} height={64} tooltip={(i) => `${v.week[i].label} · ${fmtL(v.week[i].litres)}`} />
           </View>
           {v.days.slice(0, 7).map((d, i, arr) => (
             <ARow key={d.day} title={fmtDay(d.day + 'T12:00:00')} subtitle={`${d.jobs} pickup${d.jobs === 1 ? '' : 's'} · ${d.events.filter((e) => e.kind === 'unload').length} unload${d.events.filter((e) => e.kind === 'unload').length === 1 ? '' : 's'}`}
