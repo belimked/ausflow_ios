@@ -31,8 +31,10 @@ export default function DriverScreen() {
 
   if (!driver || !v) return <View style={{ flex: 1, backgroundColor: c.bg }}><Stack.Screen options={{ headerShown: false }} /><AHeader title="Driver" back={() => router.back()} /><Text style={s.empty}>Not found.</Text></View>
   const company = driver.companyId ? ix.companies.get(driver.companyId) : undefined
-  const shown: WorkDay | undefined = tab === 'today' ? v.days.find((d) => d.day === v.todayKey) : v.days.find((d) => d.day === dayKey) || v.days[0]
-  const shownDay = shown?.day || v.todayKey
+  // The day being looked at: today, or the day picked in Working days (the first segment then shows its date).
+  const shownDay = tab === 'today' ? dayKey || v.todayKey : v.todayKey
+  const shown: WorkDay | undefined = v.days.find((d) => d.day === shownDay)
+  const dayLabel = dayKey && dayKey !== v.todayKey ? fmtDay(dayKey + 'T12:00:00') : 'Today'
   const legs = shown ? legsOf(shown.events, (a, b) => distanceM(a.lat, a.lng, b.lat, b.lng)) : []
   const ini = driver.name.split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase()
 
@@ -56,7 +58,8 @@ export default function DriverScreen() {
           {company ? <Tag label={company.name} tone="slate" /> : null}
           {v.vehicle ? <Tag label={v.vehicle.plate} tone="slate" mono /> : null}
         </View>
-        <Segmented options={[{ key: 'today', label: 'Today' }, { key: 'days', label: 'Working days', count: v.days.length }] as { key: Tab; label: string; count?: number }[]} value={tab} onChange={setTab} />
+        <Segmented options={[{ key: 'today', label: dayLabel }, { key: 'days', label: 'Working days', count: v.days.length }] as { key: Tab; label: string; count?: number }[]} value={tab}
+          onChange={(t) => { if (t === 'today' && tab === 'today') setDayKey(null); setTab(t) }} />
       </AHeader>
       <ScrollView contentContainerStyle={s.body}>
         {shown ? (
@@ -73,12 +76,13 @@ export default function DriverScreen() {
             {v.days.length ? v.days.slice(0, 30).map((d, i) => (
               <ARow key={d.day} title={fmtDay(d.day + 'T12:00:00')} subtitle={`${d.jobs} job${d.jobs === 1 ? '' : 's'} · ${fmtL(d.litres)} · ${fmtMin(d.minutes) || '—'}`}
                 right={d.flags ? <Tag label={`${d.flags} flag${d.flags === 1 ? '' : 's'}`} tone="amber" /> : undefined}
-                onPress={() => { setDayKey(d.day); setTab('today') }} last={i === Math.min(v.days.length, 30) - 1} />
+                onPress={() => { setDayKey(d.day === v.todayKey ? null : d.day); setTab('today') }} last={i === Math.min(v.days.length, 30) - 1} />
             )) : <Text style={s.empty}>No activity recorded.</Text>}
           </ACard>
         ) : (
-          <SectionCard title={shown ? (shown.day === v.todayKey ? "Today's legs" : `${fmtDay(shown.day + 'T12:00:00')} · legs`) : "Today's legs"}
-            sub={shown ? `Started ${fmtTime(shown.firstAt)} · ${shown.events.length} stops` : 'No activity today'}>
+          <SectionCard title={shownDay === v.todayKey ? "Today's legs" : `${fmtDay(shownDay + 'T12:00:00')} · legs`}
+            sub={shown ? `Started ${fmtTime(shown.firstAt)} · ${shown.events.length} stops` : shownDay === v.todayKey ? 'No activity today' : 'No activity that day'}
+            right={shownDay !== v.todayKey ? <Text onPress={() => setDayKey(null)} style={{ fontSize: 12, fontWeight: '600', color: c.primary }}>Back to today</Text> : undefined}>
             <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
               {legs.map((l, i) => {
                 const e = l.event
@@ -103,7 +107,7 @@ export default function DriverScreen() {
                   </View>
                 )
               })}
-              {v.ongoing && shown?.day === v.todayKey ? (
+              {v.ongoing && shownDay === v.todayKey ? (
                 <View style={s.leg}>
                   <View style={s.rail}><View style={[s.pt, { backgroundColor: c.primary }]} /></View>
                   <View style={{ flex: 1, gap: 2 }}>
