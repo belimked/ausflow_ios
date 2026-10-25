@@ -1,4 +1,4 @@
-import { dashboardSummary, deviceCounts, dueBuckets, filterDevices, legsOf, overdueByCompany, pickupsPerDay, sortByDue, workDays } from '../admin'
+import { dashboardSummary, deviceCounts, dueBuckets, filterDevices, legsOf, localDay, overdueByCompany, pickupsPerDay, sortByDue, workDays } from '../admin'
 import type { AppData, Device, Pickup } from '../types'
 
 const DAY = 864e5
@@ -75,7 +75,24 @@ test('work days group a driver activity by day with hours and flags', () => {
   expect(days[0].events.map((e) => e.kind)).toEqual(['pickup', 'pickup', 'unload'])
   const legs = legsOf(days[0].events, () => 1000)
   expect(legs[0].metres).toBeNull()
-  expect(legs[1].minutes).toBe(120)
+  expect(legs[1].minutes).toBe(90) // end of pickup a to the start of pickup b: the travel, not the pump-out
   expect(legs[1].slow).toBe(false)
   expect(legs[2].metres).toBe(1000)
+})
+
+test('workDays groups by the local calendar day of the pickup start, like the web console', () => {
+  // A pickup that starts before local midnight and ends after it belongs to the day it started on.
+  const midnight = new Date(); midnight.setHours(24, 0, 0, 0)
+  const start = new Date(midnight.getTime() - 3600e3), end = new Date(midnight.getTime() + 3600e3)
+  // An unload late the same evening is on the same local day as the pickup, whatever the UTC date says.
+  const late = new Date(midnight.getTime() - 600e3)
+  const d = {
+    pickups: [{ id: 'p1', status: 'done', driverId: 'D', vehicleId: 'V', volume: 500, startAt: start.toISOString(), endAt: end.toISOString() }],
+    unloads: [{ id: 'u1', vehicleId: 'V', driverId: 'D', volume: 500, at: late.toISOString() }],
+    transfers: [],
+  } as unknown as AppData
+  const days = workDays(d, { driverId: 'D' })
+  expect(days).toHaveLength(1)
+  expect(days[0].day).toBe(localDay(start.toISOString()))
+  expect(days[0].events.map((e) => e.kind)).toEqual(['pickup', 'unload']) // ordered by when each began
 })

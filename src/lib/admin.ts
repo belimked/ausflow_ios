@@ -141,22 +141,34 @@ function eventsFor(d: Activity, match: { driverId?: string; vehicleId?: string }
     const out_ = match.vehicleId ? t.fromVehicleId === match.vehicleId : true
     out.push({ kind: 'transfer', at: t.at, id: t.id, volume: t.volume || 0, lat: t.lat, lng: t.lng, out: out_, otherVehicleId: out_ ? t.toVehicleId : t.fromVehicleId })
   }
-  return out.sort((a, b) => a.at.localeCompare(b.at))
+  return out.sort((a, b) => beginOf(a).localeCompare(beginOf(b)))
 }
 
-const dayKey = (iso: string) => iso.slice(0, 10)
+// When an event began: a pickup at its start (its `at` is the end), everything else when it happened.
+// Same order and leg timing as the web console's driver log.
+export const beginOf = (e: DayEvent) => (e.kind === 'pickup' ? e.ref.startAt || e.at : e.at)
+
+// The local calendar day (YYYY-MM-DD) of a timestamp. Timestamps are stored in UTC; slicing the ISO string would
+// put an Adelaide afternoon on the next day and split one shift in two, so day counts drifted from the web console.
+export function localDay(iso: string): string {
+  const t = new Date(iso)
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+}
+
+// A pickup belongs to the day it was started on (as on the web console's driver page); other events to the day they happened.
+const dayOf = (e: DayEvent) => localDay(beginOf(e))
 
 // Working days, newest first: one row per calendar day with activity.
 export function workDays(d: Activity, match: { driverId?: string; vehicleId?: string }): WorkDay[] {
   const byDay = new Map<string, DayEvent[]>()
   for (const e of eventsFor(d, match)) {
-    const k = dayKey(e.at)
+    const k = dayOf(e)
     if (!byDay.has(k)) byDay.set(k, [])
     byDay.get(k)!.push(e)
   }
   return [...byDay.entries()].map(([day, events]) => {
     const pickups = events.filter((e) => e.kind === 'pickup') as Extract<DayEvent, { kind: 'pickup' }>[]
-    const firstAt = pickups[0]?.ref.startAt || events[0].at
+    const firstAt = beginOf(events[0])
     const lastAt = events[events.length - 1].at
     return {
       day, events, jobs: pickups.length, litres: pickups.reduce((n, p) => n + p.volume, 0), firstAt, lastAt,
@@ -166,12 +178,14 @@ export function workDays(d: Activity, match: { driverId?: string; vehicleId?: st
   }).sort((a, b) => b.day.localeCompare(a.day))
 }
 
-// The legs of one day: time and straight-line distance from the previous event to each event.
+// The legs of one day: time and straight-line distance from the end of the previous event to the start of each
+// event (the travel, not the pump-out itself). The first pickup's leg is its own duration.
 export function legsOf(events: DayEvent[], distance: (a: DayEvent, b: DayEvent) => number | null): Leg[] {
   return events.map((e, i) => {
     const prev = i ? events[i - 1] : null
     const fromAt = prev ? prev.at : (e.kind === 'pickup' ? e.ref.startAt || null : null)
-    const minutes = fromAt ? Math.max(0, Math.round((new Date(e.at).getTime() - new Date(fromAt).getTime()) / 60000)) : null
+    const toAt = prev ? beginOf(e) : e.at
+    const minutes = fromAt ? Math.max(0, Math.round((new Date(toAt).getTime() - new Date(fromAt).getTime()) / 60000)) : null
     return { event: e, fromAt, minutes, metres: prev ? distance(prev, e) : null, slow: minutes != null && minutes > SLOW_LEG_MINUTES }
   })
 }
