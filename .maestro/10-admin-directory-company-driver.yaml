@@ -12,18 +12,18 @@ tags:
       E2E_PASSWORD: ${E2E_ADMIN_PASSWORD}
 - tapOn:
     id: "tab-me"
-- tapOn: "Companies & people"
+- tapOn: ".*Companies & people.*"
 - assertVisible: "Transport companies"
 - tapOn: "Company, driver, rego, site"
 - inputText: ${E2E_COMPANY}
 - pressKey: Enter
 - waitForAnimationToEnd:
     timeout: 3000
-- tapOn: "^${E2E_COMPANY}$"
+- tapOn: "${E2E_COMPANY},.*|${E2E_COMPANY}"
 - assertVisible: "TRANSPORT COMPANY"
 - assertVisible: "Compliance"
 - tapOn: "Drivers \\d+"
-- tapOn: "^${E2E_DRIVER}$"
+- tapOn: "${E2E_DRIVER},.*|${E2E_DRIVER}"
 - assertVisible: "DRIVER"
 - assertVisible: "Slow legs"
 - scrollUntilVisible:

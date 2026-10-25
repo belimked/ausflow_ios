@@ -23,11 +23,11 @@ tags:
 - tapOn: ".*${E2E_DEVICE}.*"
 # The device page in console view has a Console section (photos, QR label) and the problem report row.
 - scrollUntilVisible:
-    element: "QR label"
+    element: ".*QR label.*"
     direction: DOWN
     centerElement: true
 - assertVisible: "Console"
-- tapOn: "QR label"
+- tapOn: ".*QR label.*"
 - assertVisible: "QR codes & labels"
 - assertVisible: "Device label · 60 × 40 mm"
 - assertVisible: ${E2E_DEVICE}
@@ -35,5 +35,5 @@ tags:
 - assertVisible: "Vehicle sticker · windscreen|Nothing to show yet."
 - tapOn: "Back"
 - scrollUntilVisible:
-    element: "Report a problem"
+    element: ".*Report a problem.*"
     direction: DOWN

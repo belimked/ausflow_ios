@@ -47,8 +47,9 @@ tags:
     id: "tab-me"
 - assertVisible: "Console view"
 - assertVisible: "Admin"
-- assertVisible: "Companies & people"
-- assertVisible: "QR codes & labels"
+# Pressable rows read as one element ("title, subtitle"), so match loosely.
+- assertVisible: ".*Companies & people.*"
+- assertVisible: ".*QR codes & labels.*"
 - scrollUntilVisible:
     element:
       id: "me-sign-out"

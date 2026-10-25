@@ -23,7 +23,7 @@ tags:
 # Tickets come from the /tickets API (not /state), so the list loads after the screen opens.
 - tapOn:
     id: "tab-me"
-- tapOn: "Ops tickets"
+- tapOn: ".*Ops tickets.*"
 - assertVisible: "MONITOR"
 - extendedWaitUntil:
     visible: "Mailbox .*|No tickets here.|From .*|Offline .*"
