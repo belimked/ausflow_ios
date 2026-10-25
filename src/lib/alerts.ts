@@ -141,10 +141,10 @@ export interface AlertView extends Alert { status: AlertStatus; read: boolean }
 export function alertViews(d: AppData, now = Date.now()): AlertView[] {
   const st = statusMap(d)
   const reads = new Set(d.alertReads.map((r) => r.id))
-  const order: Record<Severity, number> = { critical: 0, warning: 1, info: 2 }
+  // Newest first, as on the web console's Alerts page; severity is a filter there, not the order.
   return deriveAlerts(d, now)
     .map((a) => ({ ...a, status: st.get(a.id) || 'new', read: reads.has(a.id) }))
-    .sort((a, b) => order[a.severity] - order[b.severity] || (b.at || '').localeCompare(a.at || ''))
+    .sort((a, b) => (b.at || '').localeCompare(a.at || ''))
 }
 
 export const notesOf = (d: Pick<AppData, 'alertNotes'>, alertId: string) => d.alertNotes.filter((n) => n.alertId === alertId).sort((a, b) => b.at.localeCompare(a.at))
