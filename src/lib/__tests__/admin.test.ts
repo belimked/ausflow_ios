@@ -73,11 +73,17 @@ test('work days group a driver activity by day with hours and flags', () => {
   expect(days[0].flags).toBe(1)
   expect(days[0].minutes).toBeGreaterThanOrEqual(167)
   expect(days[0].events.map((e) => e.kind)).toEqual(['pickup', 'pickup', 'unload'])
+  // 1 km apart: a 90-minute gap for a 2-minute drive is a slow leg (over by more than 60 min and more than the drive).
   const legs = legsOf(days[0].events, () => 1000)
   expect(legs[0].metres).toBeNull()
   expect(legs[1].minutes).toBe(90) // end of pickup a to the start of pickup b: the travel, not the pump-out
-  expect(legs[1].slow).toBe(false)
+  expect(legs[1].expected).toBe(2)
+  expect(legs[1].over).toBe(88)
+  expect(legs[1].slow).toBe(true)
   expect(legs[2].metres).toBe(1000)
+  // 100 km apart the same gap is about what the drive takes: not slow. No position: never slow.
+  expect(legsOf(days[0].events, () => 100_000)[1].slow).toBe(false)
+  expect(legsOf(days[0].events, () => null)[1].slow).toBe(false)
 })
 
 test('workDays groups by the local calendar day of the pickup start, like the web console', () => {

@@ -35,7 +35,7 @@ export default function DriverScreen() {
   if (!driver || !v) return <View style={{ flex: 1, backgroundColor: c.bg }}><Stack.Screen options={{ headerShown: false }} /><AHeader title="Driver" back={() => router.back()} /><Text style={s.empty}>Not found.</Text></View>
   const company = driver.companyId ? ix.companies.get(driver.companyId) : undefined
   const shown = v.days.find((d) => d.day === day)
-  const legs = shown ? legsOf(shown.events, (a, b) => distanceM(a.lat, a.lng, b.lat, b.lng)) : []
+  const legs = shown ? legsOf(shown.events, distanceM) : []
   const isToday = day === todayKey
   const ini = driver.name.split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase()
   const strip = [todayKey, ...v.days.map((d) => d.day).filter((d) => d !== todayKey)].slice(0, 15)
@@ -97,7 +97,7 @@ export default function DriverScreen() {
                     <Text style={s.legTitle} numberOfLines={2}>{title(e)}</Text>
                     <Text style={s.legSub} numberOfLines={2}>{[l.fromAt ? `from ${fmtTime(l.fromAt)}` : null, fmtMin(l.minutes), l.metres != null ? fmtM(l.metres) : null].filter(Boolean).join(' · ') || 'First stop'}</Text>
                     <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                      {l.slow ? <Tag label={`Slow leg · ${fmtMin(l.minutes)}`} tone="amber" /> : null}
+                      {l.slow ? <Tag label={`Slow leg · +${fmtMin(l.over!)} over a ${fmtMin(l.expected!)} drive`} tone="amber" /> : null}
                       {flags.includes('nolocation') ? <Tag label="No GPS" tone="amber" /> : null}
                       {flags.includes('location') ? <Tag label="Away from device" tone="amber" /> : null}
                       {flags.includes('capacity') ? <Tag label="Over capacity" tone="rose" /> : null}

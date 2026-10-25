@@ -29,7 +29,7 @@ export default function RouteMap() {
     const days = workDays(data, { driverId })
     const key = day || new Date().toISOString().slice(0, 10)
     const d = days.find((x) => x.day === key) || days[0]
-    const legs = d ? legsOf(d.events, (a, b) => distanceM(a.lat, a.lng, b.lat, b.lng)) : []
+    const legs = d ? legsOf(d.events, distanceM) : []
     const ongoing = data.pickups.find((p) => p.status === 'ongoing' && p.driverId === driverId)
     const pts = legs.map((l) => l.event).filter((e) => e.lat != null && e.lng != null)
     const centre = pts.length ? { latitude: pts.reduce((n, e) => n + e.lat!, 0) / pts.length, longitude: pts.reduce((n, e) => n + e.lng!, 0) / pts.length } : { latitude: -27.47, longitude: 153.02 }
@@ -81,7 +81,7 @@ export default function RouteMap() {
               <Text key={e.id} onPress={() => setPicked(on ? null : i)} style={[s.leg, on && { backgroundColor: c.primaryTint }]}>
                 <Text style={{ color: PALETTE[i % PALETTE.length], fontWeight: '800' }}>{e.kind === 'unload' ? 'U' : e.kind === 'transfer' ? 'T' : i + 1}  </Text>
                 <Text style={{ color: c.text, fontWeight: on ? '700' : '500' }}>{titleOf(e)}</Text>
-                <Text style={{ color: c.faint }}>  {[fmtMin(l.minutes), l.metres != null ? fmtM(l.metres) : null, l.slow ? 'slow' : null].filter(Boolean).join(' · ')}  {fmtTime(e.at)}</Text>
+                <Text style={{ color: c.faint }}>  {[fmtMin(l.minutes), l.metres != null ? fmtM(l.metres) : null, l.slow ? `slow +${fmtMin(l.over!)}` : null].filter(Boolean).join(' · ')}  {fmtTime(e.at)}</Text>
               </Text>
             )
           })}
