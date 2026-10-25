@@ -2,7 +2,6 @@ import * as Haptics from 'expo-haptics'
 import type { Tabs } from 'expo-router'
 import type { ComponentProps } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icon, type SfName } from './ui'
 
 // The tab bar props as expo-router's Tabs declares them (React Navigation's BottomTabBarProps).
@@ -13,9 +12,12 @@ export interface TabSpec { name: string; label: string; icon: SfName; iconSelect
 // A floating, opaque tab bar (white card, hairline border, soft shadow, tinted pill behind the selected tab).
 // Drawn by us rather than the system so it reads the same on every iOS version: iOS 26's glass bar let the
 // content show through and the labels got lost over text.
+//
+// No hooks in here: expo-router calls `tabBar(props)` as a plain function inside a Context.Consumer render
+// prop, not as a component, so a hook throws "Invalid hook call" and a Release build aborts on launch
+// (build 17 crashed as soon as a signed-in user reached the tabs). The safe-area insets come in as a prop.
 export function makeTabBar(tabs: TabSpec[], tint: string, tintSoft: string) {
-  return function TabBar({ state, navigateToTab }: TabBarProps) {
-    const insets = useSafeAreaInsets()
+  return function TabBar({ state, navigateToTab, insets }: TabBarProps) {
     return (
       <View pointerEvents="box-none" style={[s.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={s.bar} accessibilityRole="tablist">
