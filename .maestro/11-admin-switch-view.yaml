@@ -1,0 +1,36 @@
+appId: com.ausflow
+name: Admin switches to the driver view and back to the console
+tags:
+  - auth
+  - admin
+---
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      E2E_USERNAME: ${E2E_ADMIN_USERNAME}
+      E2E_PASSWORD: ${E2E_ADMIN_PASSWORD}
+- tapOn:
+    id: "tab-me"
+- tapOn:
+    id: "me-switch-driver"
+# Driver view: Today with its greeting and the driver tab bar.
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening).*"
+    timeout: 30000
+- assertVisible:
+    id: "tab-jobs"
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "my-console"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "my-console"
+- extendedWaitUntil:
+    visible:
+      id: "dash-welcome"
+    timeout: 30000
+- assertVisible:
+    id: "tab-records"

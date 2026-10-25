@@ -33,10 +33,11 @@ So changing only flows takes about 10 minutes, and a failing flow never causes a
 | `auth` | secrets `E2E_USERNAME`, `E2E_PASSWORD` (an `ops` account on UAT) and variable `E2E_READY=true` | sign in, Today, Me data summary, sign out |
 | `data` | also variables `E2E_COMPANY`, `E2E_PLATE`, `E2E_DEVICE` (and `E2E_DRIVER` when the company has several drivers) | join a vehicle by registration; choose driver/vehicle, find a device by code, start a pickup and cancel it |
 | `write` | (marker) | the flow writes to UAT; the pickup flow cancels its pickup, which deletes it |
+| `admin` | also secrets `E2E_ADMIN_USERNAME`, `E2E_ADMIN_PASSWORD` (an `admin` account on UAT) | the console: dashboard, Devices / Records / Me tabs, device page and QR label, alerts, ops tickets, directory → company → driver, switching between console and driver view |
 
 Flows whose secrets/variables are missing are skipped with a warning.
 
-The E2E accounts (`e2e_ops`, `e2e_ops2`, `e2e_view`) and test data (company `E2E Transport`, vehicles `E2E 001`/`E2E 002`, device `E2E-DEV-001`, facility `E2E Treatment Plant`, all ids `E2E-…`) exist only on UAT, seeded by `migrations/0015_uat_e2e_seed.sql` on the backend's `uat` branch. Their passwords are repository secrets; the workflow defaults the test-data variables to these values.
+The E2E accounts (`e2e_ops`, `e2e_ops2`, `e2e_view`, and `e2e_admin` created through the console's user admin) and test data (company `E2E Transport`, vehicles `E2E 001`/`E2E 002`, device `E2E-DEV-001`, facility `E2E Treatment Plant`, all ids `E2E-…`) exist only on UAT, seeded by `migrations/0015_uat_e2e_seed.sql` on the backend's `uat` branch. Their passwords are repository secrets; the workflow defaults the test-data variables to these values.
 
 ## Ad Hoc builds (GitHub Actions)
 

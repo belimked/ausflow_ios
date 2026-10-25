@@ -63,23 +63,24 @@ appId: com.ausflow
     text: "^${E2E_USERNAME}$"
 # "Go" on the password keyboard submits (hideKeyboard is unreliable on iOS).
 - pressKey: Enter
-# Today shows once /state has loaded (slow on the first flow of a run). iOS may then offer to save the password in
+# Today (drivers) or the console dashboard ("Welcome back, <name>"; admins, authority and view-only users) shows once
+# /state has loaded (slow on the first flow of a run). iOS may then offer to save the password in
 # a system sheet that covers the app, before or after Today appears; dismiss it in either order.
 - extendedWaitUntil:
-    visible: "Not Now|Good (morning|afternoon|evening).*"
+    visible: "Not Now|Good (morning|afternoon|evening).*|Welcome back, .+"
     timeout: 60000
 - runFlow: dismiss-save-password.yaml
 # The sheet can also arrive a few seconds after Today is already showing and then hides the greeting from Maestro;
 # wait for either again and dismiss, up to three rounds, before insisting on the greeting.
 - extendedWaitUntil:
-    visible: "Not Now|Good (morning|afternoon|evening).*"
+    visible: "Not Now|Good (morning|afternoon|evening).*|Welcome back, .+"
     timeout: 30000
 - runFlow: dismiss-save-password.yaml
 - extendedWaitUntil:
-    visible: "Not Now|Good (morning|afternoon|evening).*"
+    visible: "Not Now|Good (morning|afternoon|evening).*|Welcome back, .+"
     timeout: 15000
 - runFlow: dismiss-save-password.yaml
 - extendedWaitUntil:
-    visible: "Good (morning|afternoon|evening).*"
+    visible: "Good (morning|afternoon|evening).*|Welcome back, .+"
     timeout: 30000
 - runFlow: dismiss-save-password.yaml

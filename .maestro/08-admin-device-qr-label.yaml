@@ -1,0 +1,39 @@
+appId: com.ausflow
+name: Admin finds the test device in the Devices tab, opens it and views its QR label
+tags:
+  - auth
+  - admin
+  - data
+---
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      E2E_USERNAME: ${E2E_ADMIN_USERNAME}
+      E2E_PASSWORD: ${E2E_ADMIN_PASSWORD}
+- tapOn:
+    id: "tab-devices"
+- tapOn:
+    id: "admin-devices-search"
+- inputText: ${E2E_DEVICE}
+# Return (search) closes the keyboard so the tap reaches the row.
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "1 device · sorted by.*"
+- tapOn: ".*${E2E_DEVICE}.*"
+# The device page in console view has a Console section (photos, QR label) and the problem report row.
+- scrollUntilVisible:
+    element: "QR label"
+    direction: DOWN
+    centerElement: true
+- assertVisible: "Console"
+- tapOn: "QR label"
+- assertVisible: "QR codes & labels"
+- assertVisible: "Device label · 60 × 40 mm"
+- assertVisible: ${E2E_DEVICE}
+- tapOn: "Vehicle sticker"
+- assertVisible: "Vehicle sticker · windscreen|Nothing to show yet."
+- tapOn: "Back"
+- scrollUntilVisible:
+    element: "Report a problem"
+    direction: DOWN
