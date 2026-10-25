@@ -1,4 +1,5 @@
 import { dueState, nextService, startOfDay } from './format'
+import { distanceM } from './geo-math'
 import type { AppData, Device, Pickup } from './types'
 
 // Derived numbers for the console screens. Everything comes from the /state snapshot already on the phone,
@@ -114,12 +115,15 @@ export type DayEvent =
   | { kind: 'unload'; at: string; id: string; volume: number; lat?: number | null; lng?: number | null; facilityId?: string | null }
   | { kind: 'transfer'; at: string; id: string; volume: number; lat?: number | null; lng?: number | null; out: boolean; otherVehicleId: string }
 
-export interface Leg { event: DayEvent; fromAt: string | null; minutes: number | null; metres: number | null; slow: boolean }
+// One leg of a day: from the end of the previous event to the start of this one. `expected` is the drive the
+// straight-line distance should take; `over` is how much longer the gap was.
+export interface Leg { event: DayEvent; fromAt: string | null; minutes: number | null; metres: number | null; expected: number | null; over: number | null; slow: boolean }
 
-export interface WorkDay { day: string; events: DayEvent[]; jobs: number; litres: number; firstAt: string; lastAt: string; minutes: number; flags: number }
+export interface WorkDay { day: string; events: DayEvent[]; jobs: number; litres: number; firstAt: string; lastAt: string; minutes: number; flags: number; slow: number }
 
-// A leg with no event for this long is flagged "slow" (same idea as the web console's driver log).
-export const SLOW_LEG_MINUTES = 120
+// Slow legs, the same rule as the web console's driver log: the expected drive is the straight-line distance × ROAD_FACTOR
+// at EST_SPEED_KMH; a leg is slow when the gap exceeds that by more than SLOW_LEG_MINUTES and by more than the drive itself.
+export const ROAD_FACTOR = 1.3, EST_SPEED_KMH = 40, SLOW_LEG_MINUTES = 60
 
 type Activity = Pick<AppData, 'pickups' | 'transfers' | 'unloads'>
 
@@ -141,38 +145,62 @@ function eventsFor(d: Activity, match: { driverId?: string; vehicleId?: string }
     const out_ = match.vehicleId ? t.fromVehicleId === match.vehicleId : true
     out.push({ kind: 'transfer', at: t.at, id: t.id, volume: t.volume || 0, lat: t.lat, lng: t.lng, out: out_, otherVehicleId: out_ ? t.toVehicleId : t.fromVehicleId })
   }
-  return out.sort((a, b) => a.at.localeCompare(b.at))
+  return out.sort((a, b) => beginOf(a).localeCompare(beginOf(b)))
 }
 
-const dayKey = (iso: string) => iso.slice(0, 10)
+// When an event began: a pickup at its start (its `at` is the end), everything else when it happened.
+// Same order and leg timing as the web console's driver log.
+export const beginOf = (e: DayEvent) => (e.kind === 'pickup' ? e.ref.startAt || e.at : e.at)
+
+// The local calendar day (YYYY-MM-DD) of a timestamp. Timestamps are stored in UTC; slicing the ISO string would
+// put an Adelaide afternoon on the next day and split one shift in two, so day counts drifted from the web console.
+export function localDay(iso: string): string {
+  const t = new Date(iso)
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+}
+
+// A pickup belongs to the day it was started on (as on the web console's driver page); other events to the day they happened.
+const dayOf = (e: DayEvent) => localDay(beginOf(e))
 
 // Working days, newest first: one row per calendar day with activity.
 export function workDays(d: Activity, match: { driverId?: string; vehicleId?: string }): WorkDay[] {
   const byDay = new Map<string, DayEvent[]>()
   for (const e of eventsFor(d, match)) {
-    const k = dayKey(e.at)
+    const k = dayOf(e)
     if (!byDay.has(k)) byDay.set(k, [])
     byDay.get(k)!.push(e)
   }
   return [...byDay.entries()].map(([day, events]) => {
     const pickups = events.filter((e) => e.kind === 'pickup') as Extract<DayEvent, { kind: 'pickup' }>[]
-    const firstAt = pickups[0]?.ref.startAt || events[0].at
+    const firstAt = beginOf(events[0])
     const lastAt = events[events.length - 1].at
     return {
       day, events, jobs: pickups.length, litres: pickups.reduce((n, p) => n + p.volume, 0), firstAt, lastAt,
       minutes: Math.max(0, Math.round((new Date(lastAt).getTime() - new Date(firstAt).getTime()) / 60000)),
       flags: pickups.filter((p) => p.flags.length).length,
+      slow: legsOf(events, distanceM).filter((l) => l.slow).length,
     }
   }).sort((a, b) => b.day.localeCompare(a.day))
 }
 
-// The legs of one day: time and straight-line distance from the previous event to each event.
-export function legsOf(events: DayEvent[], distance: (a: DayEvent, b: DayEvent) => number | null): Leg[] {
+// Where an event began: a pickup at its start position (its lat/lng is where it ended), everything else where it happened.
+const startPos = (e: DayEvent) => (e.kind === 'pickup' ? { lat: e.ref.startLat ?? e.lat, lng: e.ref.startLng ?? e.lng } : { lat: e.lat, lng: e.lng })
+
+type Distance = (lat1?: number | null, lng1?: number | null, lat2?: number | null, lng2?: number | null) => number | null
+
+// The legs of one day: time and straight-line distance from the end of the previous event to the start of each
+// event (the travel, not the pump-out itself). The first pickup's leg is its own duration.
+export function legsOf(events: DayEvent[], distance: Distance): Leg[] {
   return events.map((e, i) => {
     const prev = i ? events[i - 1] : null
     const fromAt = prev ? prev.at : (e.kind === 'pickup' ? e.ref.startAt || null : null)
-    const minutes = fromAt ? Math.max(0, Math.round((new Date(e.at).getTime() - new Date(fromAt).getTime()) / 60000)) : null
-    return { event: e, fromAt, minutes, metres: prev ? distance(prev, e) : null, slow: minutes != null && minutes > SLOW_LEG_MINUTES }
+    const toAt = prev ? beginOf(e) : e.at
+    const minutes = fromAt ? Math.max(0, Math.round((new Date(toAt).getTime() - new Date(fromAt).getTime()) / 60000)) : null
+    const sp = startPos(e)
+    const metres = prev ? distance(prev.lat, prev.lng, sp.lat, sp.lng) : null
+    const expected = metres != null ? Math.round((metres * ROAD_FACTOR) / (EST_SPEED_KMH / 3.6) / 60) : null
+    const over = minutes != null && expected != null ? minutes - expected : null
+    return { event: e, fromAt, minutes, metres, expected, over, slow: over != null && over > Math.max(SLOW_LEG_MINUTES, expected!) }
   })
 }
 

@@ -180,7 +180,20 @@ export default function DeviceScreen() {
           {company ? (<><Divider /><Row icon="building.2.fill" tone="neutral" title={company.name} subtitle="Responsible transport company" onPress={viewMode === 'admin' ? () => router.push(`/company/${company.id}`) : undefined} /></>) : null}
           {viewMode === 'admin' && dev.ownerId && ix.companies.get(dev.ownerId) ? (<><Divider /><Row icon="storefront.fill" tone="neutral" title={ix.companies.get(dev.ownerId)!.name} subtitle="Occupier" onPress={() => router.push(`/occupier/${dev.ownerId}`)} /></>) : null}
           {dev.lat != null ? (<><Divider /><Row icon="arrow.triangle.turn.up.right.diamond.fill" tone="success" title="Directions" subtitle="Open in Apple Maps" onPress={directions} /></>) : null}
+          {viewMode === 'admin' && dev.lat != null ? (<><Divider /><Row icon="map.fill" tone="primary" title="Show on map" subtitle="Nearby devices by due state" onPress={() => router.push({ pathname: '/map', params: { deviceId: dev.id } })} /></>) : null}
         </Card>
+
+        {viewMode === 'admin' ? (
+          <>
+            <SectionTitle title="Console" />
+            <Card style={s.group}>
+              <Row icon="photo.on.rectangle" tone="neutral" title="Photos" subtitle={`From the last ${Math.min(history.length, 5)} pickups and reported problems`}
+                onPress={() => router.push({ pathname: '/photos', params: { ids: [...history.slice(0, 5).map((p) => `pickup:${p.id}`), ...issues.map((i) => `issue:${i.id}`), `device:${dev.id}`].join(','), title: dev.ref } })} />
+              <Divider />
+              <Row icon="qrcode" tone="neutral" title="QR label" subtitle={dev.qr ? `Code ${dev.qr}` : `Code ${dev.ref}`} onPress={() => router.push({ pathname: '/qr', params: { kind: 'device', id: dev.id } })} />
+            </Card>
+          </>
+        ) : null}
 
         <SectionTitle title="Problems" />
         <Card style={s.group}>

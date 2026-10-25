@@ -85,7 +85,25 @@ export interface AppData {
   transfers: Transfer[]
   unloads: Unload[]
   reportedIssues: ReportedIssue[]
+  // Follow-up on alerts (web console store/alerts.js): status changes and notes, plus which alerts were read.
+  alertNotes: AlertNote[]
+  alertReads: { id: string }[]
 }
+
+export type AlertStatus = 'new' | 'acknowledged' | 'cleared' | 'dismissed'
+export interface AlertNote { id: string; alertId: string; kind: 'note' | 'status'; status?: AlertStatus | null; text?: string | null; user?: string | null; at: string }
+
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+export type TicketPriority = 'critical' | 'normal' | 'low'
+export interface Ticket {
+  id: string; subject: string; body?: string | null; fromAddr?: string | null; fromEmail?: string | null
+  keywords?: unknown; priority: TicketPriority; confidence?: number | null; classifiedBy?: string | null
+  assigneeId?: string | null; status: TicketStatus; source?: string | null
+  receivedAt?: string | null; createdAt: string; updatedAt?: string | null; attachmentCount?: number
+  attachments?: { id: string; filename?: string | null; mimeType?: string | null; size?: number | null }[]
+}
+export interface TicketNote { id: string; ticketId: string; kind: 'note' | 'change' | 'system'; text: string; user?: string | null; at: string }
+export interface PublicUser { id: string; username: string; displayName: string; role: Role; status?: string }
 
 export interface WorkProfile { companyId: string; driverId: string; vehicleId: string }
 

@@ -24,6 +24,6 @@ export const unload = (over: Partial<Unload> = {}): Unload => ({
 
 export const data = (over: Partial<AppData> = {}): AppData => ({
   seq: {}, companies: [], locations: [], devices: [device()], drivers: [], vehicles: [], facilities: [],
-  pickups: [], transfers: [], unloads: [], reportedIssues: [],
+  pickups: [], transfers: [], unloads: [], reportedIssues: [], alertNotes: [], alertReads: [],
   ...over,
 })

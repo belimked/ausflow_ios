@@ -12,15 +12,10 @@ appId: com.ausflow
 - waitForAnimationToEnd:
     timeout: 3000
 - inputText: ${E2E_USERNAME}
-# Right after the app starts the keyboard can swallow the first characters; the field still has focus, so retype.
-- runFlow:
-    when:
-      notVisible:
-        id: "login-username"
-        text: "^${E2E_USERNAME}$"
-    commands:
-      - eraseText: 60
-      - inputText: ${E2E_USERNAME}
+# Right after the app starts the keyboard can swallow or double the first characters; retype up to three times.
+- runFlow: retype-username.yaml
+- runFlow: retype-username.yaml
+- runFlow: retype-username.yaml
 # Never tap while the keyboard is up: the form moves and Maestro aims with a stale hierarchy. "Next" on the
 # username keyboard moves focus to the password field. The iOS driver never reports `focused`, so give the focus
 # change a moment (an optional wait that always times out), then check nothing leaked into the username field.
@@ -40,6 +35,29 @@ appId: com.ausflow
     timeout: 1000
     optional: true
 - inputText: ${E2E_PASSWORD}
+# If the password went into the username field instead (focus did not move), fix both fields once more.
+- runFlow:
+    when:
+      notVisible:
+        id: "login-username"
+        text: "^${E2E_USERNAME}$"
+    commands:
+      - runFlow: retype-username.yaml
+      - runFlow: retype-username.yaml
+      - pressKey: Enter
+      - extendedWaitUntil:
+          notVisible:
+            id: "login-username"
+          timeout: 1500
+          optional: true
+      - tapOn:
+          point: "50%,60%"
+      - extendedWaitUntil:
+          notVisible:
+            id: "login-username"
+          timeout: 1000
+          optional: true
+      - inputText: ${E2E_PASSWORD}
 - assertVisible:
     id: "login-username"
     text: "^${E2E_USERNAME}$"
@@ -50,6 +68,16 @@ appId: com.ausflow
 - extendedWaitUntil:
     visible: "Not Now|Good (morning|afternoon|evening).*"
     timeout: 60000
+- runFlow: dismiss-save-password.yaml
+# The sheet can also arrive a few seconds after Today is already showing and then hides the greeting from Maestro;
+# wait for either again and dismiss, up to three rounds, before insisting on the greeting.
+- extendedWaitUntil:
+    visible: "Not Now|Good (morning|afternoon|evening).*"
+    timeout: 30000
+- runFlow: dismiss-save-password.yaml
+- extendedWaitUntil:
+    visible: "Not Now|Good (morning|afternoon|evening).*"
+    timeout: 15000
 - runFlow: dismiss-save-password.yaml
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening).*"

@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMemo } from 'react'
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { ACard, AHeader, ARow, IconButton, KV, LinkText, SectionCard, Tag } from '@/components/admin'
 import { donePickupsSince, litresOf, sortByDue } from '@/lib/admin'
 import { addressOf, dueState, fmtL } from '@/lib/format'
@@ -36,7 +36,7 @@ export default function LocationScreen() {
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
       <AHeader eyebrow={`${loc.id} · LOCATION`} title={loc.name} subtitle={address || undefined} back={() => router.back()}
-        right={lat != null && lng != null ? <IconButton name="map.fill" label="Open in Apple Maps" onPress={() => Linking.openURL(`maps://?q=${encodeURIComponent(loc.name)}&ll=${lat},${lng}`)} /> : undefined}>
+        right={lat != null && lng != null ? <IconButton name="map.fill" label="Show on map" onPress={() => router.push({ pathname: '/map', params: { locationId: loc.id } })} /> : undefined}>
         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
           {v.overdue ? <Tag label={`${v.overdue} overdue`} tone="rose" /> : <Tag label="Nothing overdue" tone="green" />}
           <Tag label={loc.status || 'Active'} tone={loc.status === 'Active' || !loc.status ? 'green' : 'slate'} />

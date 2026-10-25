@@ -1,0 +1,16 @@
+appId: com.ausflow
+---
+# The simulator keyboard sometimes swallows or doubles the first characters typed into a freshly focused field
+# ("ee2e_ops"). Erase and type again; callers nest this up to three times, each only while the text is still wrong.
+- runFlow:
+    when:
+      notVisible:
+        id: "login-username"
+        text: "^${E2E_USERNAME}$"
+    commands:
+      - tapOn:
+          id: "login-username"
+      - eraseText: 60
+      - waitForAnimationToEnd:
+          timeout: 1000
+      - inputText: ${E2E_USERNAME}

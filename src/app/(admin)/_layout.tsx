@@ -1,26 +1,22 @@
-import { NativeTabs } from 'expo-router/native-tabs'
+import { Tabs } from 'expo-router'
+import { makeTabBar } from '@/components/TabBar'
 import { admin } from '@/lib/theme'
 
 // Console tabs for admin / authority / view-only users. Drivers get (tabs); see lib/role.ts.
+const TabBar = makeTabBar([
+  { name: 'index', label: 'Dashboard', icon: 'gauge.with.dots.needle.33percent', iconSelected: 'gauge.with.dots.needle.33percent' },
+  { name: 'devices', label: 'Devices', icon: 'drop', iconSelected: 'drop.fill' },
+  { name: 'records', label: 'Records', icon: 'list.bullet.rectangle', iconSelected: 'list.bullet.rectangle.fill' },
+  { name: 'me', label: 'Me', icon: 'person.crop.circle', iconSelected: 'person.crop.circle.fill' },
+], admin.primary, admin.primaryTint)
+
 export default function AdminTabLayout() {
   return (
-    <NativeTabs tintColor={admin.primary}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Dashboard</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'gauge.with.dots.needle.33percent', selected: 'gauge.with.dots.needle.33percent' }} md="speed" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="devices">
-        <NativeTabs.Trigger.Label>Devices</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'drop', selected: 'drop.fill' }} md="water_drop" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="records">
-        <NativeTabs.Trigger.Label>Records</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'list.bullet.rectangle', selected: 'list.bullet.rectangle.fill' }} md="list" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="me">
-        <NativeTabs.Trigger.Label>Me</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} md="person" />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Tabs tabBar={TabBar} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: admin.bg } }}>
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="devices" />
+      <Tabs.Screen name="records" />
+      <Tabs.Screen name="me" />
+    </Tabs>
   )
 }

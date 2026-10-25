@@ -1,0 +1,122 @@
+name: Launch check
+
+# Launches the simulator build of this branch on a chosen iOS version and prints why it crashed, if it did.
+# For "installs fine, crashes on launch" reports from devices: a Release build turns an unhandled JS error at
+# start-up into SIGABRT with no message in the device crash log, so this run keeps the system log instead.
+# Never compiles: downloads the build that build.yml keeps on GitHub (ci/app-artifact-name.sh).
+# Runs on every iOS version in the matrix when this file is pushed (workflow_dispatch only works once the
+# file is on main), or by hand with a chosen version.
+on:
+  push:
+    branches: ['**']
+    paths: ['.github/workflows/launch-check.yml']
+  workflow_dispatch:
+    inputs:
+      ios:
+        description: 'iOS runtime to launch on (e.g. 18.6 or 26.0)'
+        type: string
+        default: '18.6'
+      device:
+        description: 'Simulator device type'
+        type: string
+        default: 'iPhone 13'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  launch:
+    runs-on: macos-26
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        ios: ${{ fromJSON(inputs.ios && format('["{0}"]', inputs.ios) || '["18.6", "26.0"]') }}
+    name: iOS ${{ matrix.ios }}
+    env:
+      IOS: ${{ matrix.ios }}
+      DEVICE: ${{ inputs.device || 'iPhone 13' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Find the build of this app version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NAME=$(ci/app-artifact-name.sh)
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$NAME&per_page=5" \
+            --jq '[.artifacts[] | select(.expired == false)][0].workflow_run.id // empty')
+          [ -n "$RUN" ] || { echo "::error::No build of this app version on GitHub ($NAME). Run the Build workflow for this branch."; exit 1; }
+          echo "Using $NAME from Build run $RUN"
+          echo "APP_ARTIFACT=$NAME" >> "$GITHUB_ENV"
+          echo "APP_RUN=$RUN" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.APP_ARTIFACT }}
+          run-id: ${{ env.APP_RUN }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/app
+
+      - name: Unpack the app
+        run: tar -xzf "$RUNNER_TEMP/app/AusFlow.app.tgz" -C "$RUNNER_TEMP/app" && ls "$RUNNER_TEMP/app"
+
+      - name: Get the iOS ${{ env.IOS }} simulator runtime
+        run: |
+          have() { xcrun simctl list runtimes -j | jq -r '.runtimes[] | select(.platform == "iOS" and .isAvailable) | .version'; }
+          if ! have | grep -qx "${{ env.IOS }}"; then
+            echo "Downloading the iOS ${{ env.IOS }} runtime"
+            sudo xcodebuild -downloadPlatform iOS -buildVersion "${{ env.IOS }}"
+          fi
+          echo "Available iOS runtimes:"; have
+
+      - name: Create and boot the simulator
+        run: |
+          RT=$(xcrun simctl list runtimes -j | jq -r --arg v "${{ env.IOS }}" '.runtimes[] | select(.platform == "iOS" and .version == $v) | .identifier')
+          [ -n "$RT" ] || { echo "::error::No iOS ${{ env.IOS }} runtime"; exit 1; }
+          DT=$(xcrun simctl list devicetypes -j | jq -r --arg n "${{ env.DEVICE }}" '.devicetypes[] | select(.name == $n) | .identifier')
+          [ -n "$DT" ] || { echo "::error::No device type named ${{ env.DEVICE }}"; exit 1; }
+          UDID=$(xcrun simctl create "launch-check" "$DT" "$RT")
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$RUNNER_TEMP/app/AusFlow.app"
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+
+      - name: Launch the app and keep the log
+        run: |
+          LOG="$RUNNER_TEMP/launch.log"
+          # Everything the app process says, plus the error messages React Native logs before aborting.
+          xcrun simctl spawn "$UDID" log stream --style compact --level debug \
+            --predicate 'process == "AusFlow" OR eventMessage CONTAINS "AusFlow" OR eventMessage CONTAINS "com.ausflow"' > "$LOG" 2>&1 &
+          STREAM=$!
+          sleep 3
+          xcrun simctl launch "$UDID" com.ausflow || true
+          sleep 20
+          kill $STREAM || true
+          ALIVE=$(xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -c 'com.ausflow' || true)
+          echo "::group::Launch log (filtered)"
+          grep -iE 'Unhandled|Exception|RCTFatal|Error:|Invariant|abort|crash|Terminating|SIGABRT|TurboModule' "$LOG" | head -80 || true
+          echo "::endgroup::"
+          CRASHES=$(ls ~/Library/Logs/DiagnosticReports/AusFlow* 2>/dev/null || true)
+          if [ -n "$CRASHES" ]; then
+            echo "::error::AusFlow crashed on iOS ${{ env.IOS }}"
+            for f in $CRASHES; do echo "== $f"; grep -E 'exceptionReason|Exception Type|Termination|Application Specific' "$f" | head -20; done
+            mkdir -p "$RUNNER_TEMP/crashes" && cp $CRASHES "$RUNNER_TEMP/crashes/"
+            exit 1
+          fi
+          if [ "$ALIVE" = 0 ]; then echo "::error::AusFlow is not running 20 s after launch and left no crash report"; exit 1; fi
+          echo "AusFlow is still running 20 s after launch on iOS ${{ env.IOS }}"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launch-check-ios${{ env.IOS }}-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/launch.log
+            ${{ runner.temp }}/crashes
+          if-no-files-found: ignore

@@ -51,7 +51,8 @@
           "locationAlwaysPermission": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-maps"
     ],
     "experiments": {
       "typedRoutes": true

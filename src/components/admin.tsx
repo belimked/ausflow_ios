@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics'
 import type { ReactNode } from 'react'
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import { useEffect, useState } from 'react'
+import { Animated, Pressable, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { admin as c, adminShadow } from '@/lib/theme'
 import { Icon, type SfName } from './ui'
@@ -148,19 +149,61 @@ export function Kpi({ label, value, badge, badgeTone = 'green', note, icon, icon
   )
 }
 
-// Small bar chart made of views (no chart library): one bar per row, tallest = 100%.
-export function Bars({ rows, height = 72, color = c.primary, labels }: { rows: number[]; height?: number; color?: string; labels?: (string | null)[] }) {
+// Small bar chart made of views (no chart library). Touch and drag across it: the bars near the finger grow
+// like a macOS Dock and a label above shows the value, so the exact figures are a press away.
+const DOCK_REACH = 2.5
+const DOCK_SCALE = 0.45
+
+export function Bars({ rows, height = 72, color = c.primary, labels, tooltip }: {
+  rows: number[]; height?: number; color?: string; labels?: (string | null)[]; tooltip?: (index: number) => string
+}) {
   const max = Math.max(1, ...rows)
+  const [active, setActive] = useState<number | null>(null)
+  const [width, setWidth] = useState(0)
+  // One animated scale per bar; rebuilt when the number of bars changes.
+  const [scales, setScales] = useState(() => rows.map(() => new Animated.Value(1)))
+  if (scales.length !== rows.length) setScales(rows.map((_, i) => scales[i] || new Animated.Value(1)))
+
+  useEffect(() => {
+    Animated.parallel(scales.map((v, i) => {
+      const d = active == null ? Infinity : Math.abs(i - active)
+      const target = d > DOCK_REACH ? 1 : 1 + DOCK_SCALE * (1 - d / DOCK_REACH)
+      return Animated.spring(v, { toValue: target, useNativeDriver: true, speed: 30, bounciness: 6 })
+    })).start()
+  }, [active, scales])
+
+  const pick = (e: GestureResponderEvent) => {
+    if (!width || !rows.length) return
+    const i = Math.min(rows.length - 1, Math.max(0, Math.floor((e.nativeEvent.locationX / width) * rows.length)))
+    setActive((prev) => { if (prev !== i) Haptics.selectionAsync(); return i })
+  }
+  const slot = rows.length ? width / rows.length : 0
+  const tipText = active != null ? (tooltip ? tooltip(active) : String(rows[active])) : ''
+  // Keep the label inside the chart: clamp its centre to the chart width.
+  const tipLeft = active != null ? Math.min(Math.max(slot * (active + 0.5), 60), Math.max(60, width - 60)) : 0
+
   return (
-    <View>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height }}>
+    <View style={{ paddingTop: 26 }} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height }}
+        onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true}
+        onResponderGrant={pick} onResponderMove={pick} onResponderRelease={() => setActive(null)} onResponderTerminate={() => setActive(null)}>
         {rows.map((v, i) => (
-          <View key={i} style={{ flex: 1, height: Math.max(3, (v / max) * height), borderRadius: 3, backgroundColor: v ? color : c.border }} />
+          <Animated.View key={i} style={{
+            flex: 1, height: Math.max(3, (v / max) * height), borderRadius: 3,
+            backgroundColor: v ? (active === i ? c.primaryDark : color) : c.border,
+            transform: [{ scaleY: scales[i] || 1 }], transformOrigin: 'bottom',
+          }} />
         ))}
       </View>
+      {active != null ? (
+        <View pointerEvents="none" style={[s.tip, { left: tipLeft }]}>
+          <Text style={s.tipText} numberOfLines={1}>{tipText}</Text>
+          <View style={s.tipArrow} />
+        </View>
+      ) : null}
       {labels ? (
         <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
-          {labels.map((l, i) => <Text key={i} style={[s.mono, { flex: 1, fontSize: 9, color: c.faint, textAlign: 'center' }]} numberOfLines={1}>{l || ''}</Text>)}
+          {labels.map((l, i) => <Text key={i} style={[s.mono, { flex: 1, fontSize: 9, color: active === i ? c.text : c.faint, fontWeight: active === i ? '700' : '400', textAlign: 'center' }]} numberOfLines={1}>{l || ''}</Text>)}
         </View>
       ) : null}
     </View>
@@ -265,6 +308,9 @@ const s = StyleSheet.create({
   kpiValue: { fontSize: 24, fontWeight: '600', color: c.text, flexShrink: 1 },
   kpiNote: { fontSize: 11, color: c.ghost },
   segbar: { flexDirection: 'row', height: 5, borderRadius: 3, overflow: 'hidden', gap: 2, marginTop: 2 },
+  tip: { position: 'absolute', top: 0, width: 120, marginLeft: -60, alignItems: 'center' },
+  tipText: { backgroundColor: c.text, color: '#fff', fontSize: 11, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, overflow: 'hidden', fontVariant: ['tabular-nums'] },
+  tipArrow: { width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 5, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: c.text },
   rankNo: { width: 18, height: 18, borderRadius: 5, backgroundColor: c.hairline, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: c.hairline },
   rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },

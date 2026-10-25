@@ -26,7 +26,7 @@ export default function Scan() {
   const insets = useSafeAreaInsets()
   const params = useLocalSearchParams<{ mode?: ScanMode }>()
   const mode: ScanMode = params.mode && params.mode in HINT ? params.mode : 'any'
-  const { data, profile } = useStore()
+  const { data, profile, viewMode } = useStore()
   const ix = useIndex()
   const [permission, requestPermission] = useCameraPermissions()
   const [torch, setTorch] = useState(false)
@@ -39,6 +39,20 @@ export default function Scan() {
     if (locked.current || !data) return
     locked.current = true
     const onBoard = profile ? ix.loads.get(profile.vehicleId) || 0 : 0
+    // Console view: any sticker opens its record; driver actions (start pickup, change vehicle…) stay in the driver view.
+    if (viewMode === 'admin' && mode === 'any') {
+      const hit = resolveCode(data, raw)
+      if (!hit) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+        setProblem(`Nothing found for “${raw.trim()}”`)
+        setTimeout(() => { locked.current = false }, 1800)
+        return
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      if (hit.kind === 'device') return router.replace(`/device/${hit.item.id}`)
+      if (hit.kind === 'vehicle') return router.replace(`/vehicle/${hit.item.id}`)
+      return router.replace({ pathname: '/directory', params: { tab: 'facilities' } })
+    }
     const action = scanAction(resolveCode(data, raw), raw, mode, { vehicleId: profile?.vehicleId, onBoard, companyId: profile?.companyId })
     if ('problem' in action) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)

@@ -66,14 +66,14 @@ export default function VehicleScreen() {
             <KV label="Type" value={vehicle.type || '—'} right />
           </View>
           <View style={{ flexDirection: 'row' }}>
-            <KV label="QR code" value={<Text style={s.mono}>{vehicle.qr || 'None'}</Text>} last />
+            <KV label="QR code" value={<LinkText label={`${vehicle.qr || vehicle.id} · sticker ›`} onPress={() => router.push({ pathname: '/qr', params: { kind: 'vehicle', id: vehicle.id } })} />} last />
             <KV label="Vehicle ID" value={<Text style={s.mono}>{vehicle.id}</Text>} right last />
           </View>
         </ACard>
 
         <SectionCard title="Loads · last 7 days" sub={`${fmtL(v.week.reduce((n, d) => n + d.litres, 0))} collected`} right={<LinkText label="Records" onPress={() => router.navigate('/records')} />}>
           <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
-            <Bars rows={v.week.map((d) => d.litres)} labels={v.week.map((d) => d.label)} height={64} />
+            <Bars rows={v.week.map((d) => d.litres)} labels={v.week.map((d) => d.label)} height={64} tooltip={(i) => `${v.week[i].label} · ${fmtL(v.week[i].litres)}`} />
           </View>
           {v.days.slice(0, 7).map((d, i, arr) => (
             <ARow key={d.day} title={fmtDay(d.day + 'T12:00:00')} subtitle={`${d.jobs} pickup${d.jobs === 1 ? '' : 's'} · ${d.events.filter((e) => e.kind === 'unload').length} unload${d.events.filter((e) => e.kind === 'unload').length === 1 ? '' : 's'}`}
