@@ -79,6 +79,7 @@ export default function DriverScreen() {
           <StatTile label="Jobs" value={String(shown?.jobs ?? 0)} />
           <StatTile label="Collected" value={fmtL(shown?.litres ?? 0).replace(' L', '')} />
           <StatTile label="On road" value={shown ? fmtMin(shown.minutes) || '0' : '0'} />
+          <StatTile label="Slow legs" value={String(shown?.slow ?? 0)} color={shown?.slow ? c.dangerText : undefined} />
           <StatTile label="Flags" value={String(shown?.flags ?? 0)} color={shown?.flags ? c.warningText : undefined} />
         </View>
 
@@ -125,7 +126,7 @@ export default function DriverScreen() {
           {v.days.slice(0, 30).map((d, i) => (
             <View key={d.day} style={d.day === day ? { backgroundColor: c.primaryTint } : undefined}>
               <ARow title={d.day === todayKey ? `Today · ${fmtDay(d.day + 'T12:00:00')}` : fmtDay(d.day + 'T12:00:00')} subtitle={`${d.jobs} job${d.jobs === 1 ? '' : 's'} · ${fmtL(d.litres)} · ${fmtMin(d.minutes) || '—'}`}
-                right={<View style={{ flexDirection: 'row', gap: 6 }}>{d.flags ? <Tag label={`${d.flags} flag${d.flags === 1 ? '' : 's'}`} tone="amber" /> : null}{d.day === day ? <Tag label="Showing" tone="blue" /> : null}</View>}
+                right={<View style={{ flexDirection: 'row', gap: 6 }}>{d.slow ? <Tag label={`${d.slow} slow leg${d.slow === 1 ? '' : 's'}`} tone="rose" /> : null}{d.flags ? <Tag label={`${d.flags} flag${d.flags === 1 ? '' : 's'}`} tone="amber" /> : null}{d.day === day ? <Tag label="Showing" tone="blue" /> : null}</View>}
                 onPress={() => pick(d.day)} last={i === Math.min(v.days.length, 30) - 1} />
             </View>
           ))}

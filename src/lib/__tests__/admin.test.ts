@@ -71,6 +71,7 @@ test('work days group a driver activity by day with hours and flags', () => {
   expect(days[0].jobs).toBe(2)
   expect(days[0].litres).toBe(2000)
   expect(days[0].flags).toBe(1)
+  expect(days[0].slow).toBe(0) // no positions on these pickups, so no leg can be judged slow
   expect(days[0].minutes).toBeGreaterThanOrEqual(167)
   expect(days[0].events.map((e) => e.kind)).toEqual(['pickup', 'pickup', 'unload'])
   // 1 km apart: a 90-minute gap for a 2-minute drive is a slow leg (over by more than 60 min and more than the drive).

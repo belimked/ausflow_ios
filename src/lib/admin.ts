@@ -1,4 +1,5 @@
 import { dueState, nextService, startOfDay } from './format'
+import { distanceM } from './geo-math'
 import type { AppData, Device, Pickup } from './types'
 
 // Derived numbers for the console screens. Everything comes from the /state snapshot already on the phone,
@@ -118,7 +119,7 @@ export type DayEvent =
 // straight-line distance should take; `over` is how much longer the gap was.
 export interface Leg { event: DayEvent; fromAt: string | null; minutes: number | null; metres: number | null; expected: number | null; over: number | null; slow: boolean }
 
-export interface WorkDay { day: string; events: DayEvent[]; jobs: number; litres: number; firstAt: string; lastAt: string; minutes: number; flags: number }
+export interface WorkDay { day: string; events: DayEvent[]; jobs: number; litres: number; firstAt: string; lastAt: string; minutes: number; flags: number; slow: number }
 
 // Slow legs, the same rule as the web console's driver log: the expected drive is the straight-line distance × ROAD_FACTOR
 // at EST_SPEED_KMH; a leg is slow when the gap exceeds that by more than SLOW_LEG_MINUTES and by more than the drive itself.
@@ -177,6 +178,7 @@ export function workDays(d: Activity, match: { driverId?: string; vehicleId?: st
       day, events, jobs: pickups.length, litres: pickups.reduce((n, p) => n + p.volume, 0), firstAt, lastAt,
       minutes: Math.max(0, Math.round((new Date(lastAt).getTime() - new Date(firstAt).getTime()) / 60000)),
       flags: pickups.filter((p) => p.flags.length).length,
+      slow: legsOf(events, distanceM).filter((l) => l.slow).length,
     }
   }).sort((a, b) => b.day.localeCompare(a.day))
 }
