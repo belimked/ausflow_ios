@@ -56,6 +56,11 @@ test('dashboard summary compares this week with last', () => {
 })
 
 test('work days group a driver activity by day with hours and flags', () => {
+  // Pin the clock to 15:00 local time so the "today" events (3 h to 12 min ago) never straddle midnight,
+  // whatever time of day CI runs.
+  const now = new Date()
+  now.setHours(15, 0, 0, 0)
+  jest.useFakeTimers({ now })
   const d = {
     pickups: [
       pick('a', 0, { driverId: 'D', startAt: new Date(Date.now() - 3 * 3600e3).toISOString(), endAt: new Date(Date.now() - 2.5 * 3600e3).toISOString() }),
@@ -85,6 +90,7 @@ test('work days group a driver activity by day with hours and flags', () => {
   // 100 km apart the same gap is about what the drive takes: not slow. No position: never slow.
   expect(legsOf(days[0].events, () => 100_000)[1].slow).toBe(false)
   expect(legsOf(days[0].events, () => null)[1].slow).toBe(false)
+  jest.useRealTimers()
 })
 
 test('workDays groups by the local calendar day of the pickup start, like the web console', () => {
