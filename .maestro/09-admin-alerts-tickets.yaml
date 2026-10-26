@@ -30,7 +30,8 @@ tags:
     timeout: 30000
 - tapOn: "Resolved \\d+"
 - extendedWaitUntil:
-    visible: "No tickets here.|From .*"
+    # iOS merges the whole ticket card into one element ("Normal, <subject>, <date>, From …").
+    visible: "No tickets here.|.*From .*"
     timeout: 15000
 - tapOn: "Back"
 - assertVisible: "Console view"

@@ -20,7 +20,9 @@ tags:
 - waitForAnimationToEnd:
     timeout: 3000
 - assertVisible: "1 device · sorted by.*"
-- tapOn: ".*${E2E_DEVICE}.*"
+# Tap the row by id: the search field also carries the device code as its text.
+- tapOn:
+    id: "device-row-.*"
 # The device page in console view has a Console section (photos, QR label) and the problem report row.
 - scrollUntilVisible:
     element: ".*QR label.*"

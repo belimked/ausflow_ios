@@ -87,7 +87,7 @@ export default function Directory() {
       <FlatList data={rows.slice(0, 300)} keyExtractor={(r) => r.id} contentContainerStyle={s.list} keyboardShouldPersistTaps="handled"
         renderItem={({ item: r, index }) => (
           <ACard style={{ borderRadius: 0, borderTopWidth: index ? 0 : 1, ...(index === 0 ? { borderTopLeftRadius: 12, borderTopRightRadius: 12 } : {}), ...(index === Math.min(rows.length, 300) - 1 ? { borderBottomLeftRadius: 12, borderBottomRightRadius: 12 } : {}) }}>
-            <ARow icon={r.icon} iconTone={r.tag?.tone === 'rose' ? 'rose' : r.tag?.tone === 'amber' ? 'amber' : 'blue'} title={r.title} subtitle={r.sub}
+            <ARow testID={`directory-row-${r.id}`} icon={r.icon} iconTone={r.tag?.tone === 'rose' ? 'rose' : r.tag?.tone === 'amber' ? 'amber' : 'blue'} title={r.title} subtitle={r.sub}
               right={r.tag ? <Tag label={r.tag.label} tone={r.tag.tone} /> : undefined} last onPress={r.to ? () => router.push(r.to as any) : undefined} />
           </ACard>
         )}

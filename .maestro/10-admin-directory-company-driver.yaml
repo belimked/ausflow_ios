@@ -19,7 +19,9 @@ tags:
 - pressKey: Enter
 - waitForAnimationToEnd:
     timeout: 3000
-- tapOn: "${E2E_COMPANY},.*|${E2E_COMPANY}"
+# Tap the row by id: the search field also carries the company name as its text.
+- tapOn:
+    id: "directory-row-.*"
 - assertVisible: "TRANSPORT COMPANY"
 - assertVisible: "Compliance"
 - tapOn: "Drivers \\d+"

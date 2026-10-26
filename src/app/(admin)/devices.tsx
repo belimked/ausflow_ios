@@ -54,7 +54,7 @@ export default function AdminDevices() {
     const busy = ix.ongoingByDevice.get(d.id)
     const co = ix.companies.get(d.companyId || '')?.name
     return (
-      <ARow icon="drop.fill" iconTone={busy ? 'blue' : TONE[due.state]} last={index === rows.length - 1} onPress={() => router.push(`/device/${d.id}`)}
+      <ARow testID={`device-row-${d.id}`} icon="drop.fill" iconTone={busy ? 'blue' : TONE[due.state]} last={index === rows.length - 1} onPress={() => router.push(`/device/${d.id}`)}
         title={deviceTitle(d, loc)}
         subtitle={<Text style={s.sub} numberOfLines={1}><Text style={s.mono}>{d.ref}</Text>{loc ? ` · ${addressOf(loc)}` : d.locationDesc ? ` · ${d.locationDesc}` : ''}</Text>}
         right={
