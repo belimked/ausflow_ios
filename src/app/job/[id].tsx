@@ -8,7 +8,7 @@ import { PhotoPicker } from '@/components/PhotoPicker'
 import { Button, Card, Divider, EmptyState, Icon, IconBadge, Pill, Row, SectionTitle } from '@/components/ui'
 import { LOCATION_FLAG_METRES } from '@/lib/config'
 import { deviceTitle, fmtDateTime, fmtDuration, fmtL, fmtM, fmtTime } from '@/lib/format'
-import { currentCoords } from '@/lib/geo'
+import { currentCoords, useLocationFix } from '@/lib/geo'
 import { nearbyFacilities } from '@/lib/delivery'
 import { pickupDelivery } from '@/lib/load'
 import type { PreparedPhoto } from '@/lib/photo-file'
@@ -69,6 +69,8 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
   const destinations = nearbyFacilities(data?.facilities || [], dev?.lat != null && dev?.lng != null ? { lat: dev.lat, lng: dev.lng } : null).slice(0, 4)
   const wastes = wasteOptions(pickup.waste || dev?.waste)
   const [busy, setBusy] = useState<string | null>(null)
+  // Locating starts as the form opens, so Complete does not wait for the GPS.
+  useLocationFix()
 
   const cap = dev?.capacity || 0
   const v = Number(volume.replace(/[^\d.]/g, ''))

@@ -1,16 +1,15 @@
 import * as Haptics from 'expo-haptics'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DueBadge, JobRow } from '@/components/items'
 import { Button, Card, Divider, EmptyState, Icon, IconBadge, Pill, Row, SectionTitle, toneColor } from '@/components/ui'
 import { addressOf, deviceTitle, dueState, fmtDate, fmtL, fmtM, nextService } from '@/lib/format'
-import { currentCoords, distanceM, quietCoords } from '@/lib/geo'
+import { currentCoords, distanceM, useLocationFix } from '@/lib/geo'
 import { issueLabel, openIssues } from '@/lib/issues'
 import { useIndex, useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
-import type { Coords } from '@/lib/types'
 
 export default function DeviceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -18,18 +17,9 @@ export default function DeviceScreen() {
   const insets = useSafeAreaInsets()
   const { data, profile, canWrite, startJob, serviceOnly, viewMode } = useStore()
   const ix = useIndex()
-  const [here, setHere] = useState<Coords | null>(null)
+  // Locating starts as the page opens, so Start pickup does not wait for the GPS.
+  const here = useLocationFix()
   const [busy, setBusy] = useState<string | null>(null)
-  // A precise fix is requested as soon as the page opens, so Start pickup does not wait for GPS.
-  const fix = useRef<{ promise: Promise<Coords | null>; at: number } | null>(null)
-
-  useEffect(() => {
-    quietCoords().then((c) => { if (c) setHere((h) => h || c) })
-    fix.current = { promise: currentCoords().then((c) => { if (c) setHere(c); return c }), at: Date.now() }
-  }, [])
-
-  // The prefetched fix when it is recent, otherwise a new one.
-  const locate = useCallback(() => (fix.current && Date.now() - fix.current.at < 90000 ? fix.current.promise : currentCoords()), [])
 
   const dev = ix.devices.get(id)
   const loc = dev?.locationId ? ix.locations.get(dev.locationId) : undefined
@@ -58,7 +48,7 @@ export default function DeviceScreen() {
     }
     try {
       setBusy('Getting your location…')
-      const coords = await locate()
+      const coords = await currentCoords()
       setBusy('Starting pickup…')
       const p = await startJob(dev.id, coords)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -80,7 +70,7 @@ export default function DeviceScreen() {
           if (!dev) return
           try {
             setBusy('Getting your location…')
-            const coords = await locate()
+            const coords = await currentCoords()
             setBusy('Saving…')
             const p = await serviceOnly(dev.id, { note: note || '', coords })
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)

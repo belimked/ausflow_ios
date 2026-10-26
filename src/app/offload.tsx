@@ -1,17 +1,17 @@
 import * as Haptics from 'expo-haptics'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Card, Divider, EmptyState, Icon, Row, SectionTitle, toneColor } from '@/components/ui'
 import { LOCATION_FLAG_METRES } from '@/lib/config'
 import { UNLOAD_DIFF_WARN, cycleWaste, nearbyFacilities, volumeGap } from '@/lib/delivery'
 import { fmtL, fmtM } from '@/lib/format'
-import { currentCoords, distanceM, quietCoords } from '@/lib/geo'
+import { currentCoords, distanceM, useLocationFix } from '@/lib/geo'
 import { currentCycle } from '@/lib/load'
 import { useIndex, useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
-import type { Coords, Unload } from '@/lib/types'
+import type { Unload } from '@/lib/types'
 import { DEFAULT_WASTE, wasteCodeOf, wasteOptions } from '@/lib/waste'
 
 // Old WasteID "Offload Waste / Deliver Waste": choose the facility (scan its plate or pick a nearby one),
@@ -23,11 +23,10 @@ export default function Offload() {
   const { data, profile, unload } = useStore()
   const ix = useIndex()
   const [facilityId, setFacilityId] = useState(params.facilityId || '')
-  const [here, setHere] = useState<Coords | null>(null)
+  // Locating starts as the page opens: nearby facilities sort by it, and Deliver does not wait for the GPS.
+  const here = useLocationFix()
   const [busy, setBusy] = useState<string | null>(null)
   const [done, setDone] = useState<Unload | null>(null)
-
-  useEffect(() => { quietCoords().then(setHere) }, [])
 
   const vehicle = profile ? ix.vehicles.get(profile.vehicleId) : undefined
   const onBoard = Math.max(0, vehicle ? ix.loads.get(vehicle.id) || 0 : 0)
