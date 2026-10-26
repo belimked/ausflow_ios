@@ -4,24 +4,31 @@ import type { Coords } from './types'
 
 export { distanceM } from './geo-math'
 
-// Job coordinates only decide whether the driver was near the device or facility (LOCATION_FLAG_METRES), so
-// street-level accuracy is enough: the first sample at least this good ends the wait.
-export const GOOD_ACCURACY_M = 50
+// Job coordinates only decide whether the driver was near the device or facility (LOCATION_FLAG_METRES = 200),
+// so a sample this good ends the wait. iOS gives ~65 m from Wi-Fi alone, which is enough and often all a truck
+// cab ever gets.
+export const GOOD_ACCURACY_M = 100
 // A good fix is reused for this long: a driver scans, reads the page and taps within it.
 export const REUSE_MS = 60000
-// How long a write waits for the GPS before falling back to the last known position. The old 12 s made
-// "Finish pickup" and "Transfer" take ten-odd seconds inside a truck cab, where a precise fix rarely arrives.
+// How long the GPS is watched for a good sample before the best one seen is kept.
 export const FIX_TIMEOUT_MS = 4000
+// How long a tap waits for a fix in progress; after that the best sample so far (or the last known
+// position) is used and the watch carries on for the next screen.
+export const TAP_WAIT_MS = 2000
 
 const toCoords = (pos: Location.LocationObject): Coords =>
   ({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy })
 
 const better = (a: Coords | null, b: Coords) => !a || (b.accuracy ?? Infinity) < (a.accuracy ?? Infinity)
 
+// Best sample of the watch in progress, for a tap that will not wait for it to finish.
+let partial: Coords | null = null
+
 // Watches the GPS until a sample is good enough or the timeout passes, then returns the best sample seen.
 async function watchFix(): Promise<Coords | null> {
   return new Promise((resolve) => {
     let best: Coords | null = null
+    partial = null
     let done = false
     let sub: Location.LocationSubscription | null = null
     const finish = () => {
@@ -34,7 +41,7 @@ async function watchFix(): Promise<Coords | null> {
     const timer = setTimeout(finish, FIX_TIMEOUT_MS)
     Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 500, distanceInterval: 0 }, (pos) => {
       const c = toCoords(pos)
-      if (better(best, c)) best = c
+      if (better(best, c)) best = partial = c
       if ((c.accuracy ?? Infinity) <= GOOD_ACCURACY_M) finish()
     }).then((s) => {
       sub = s
@@ -57,7 +64,7 @@ function fetchFix(): Promise<Coords | null> {
       const perm = await Location.requestForegroundPermissionsAsync()
       if (perm.status !== 'granted') return null
       const fix = await watchFix()
-      const c = fix || (await Location.getLastKnownPositionAsync({ maxAge: 5 * 60000 }).then((p) => (p ? toCoords(p) : null)).catch(() => null))
+      const c = fix || (await lastKnown())
       if (c) last = { coords: c, at: Date.now() }
       return c
     } finally {
@@ -67,11 +74,21 @@ function fetchFix(): Promise<Coords | null> {
   return pending
 }
 
-// Where the driver is, for recording a job: a recent good fix, else a new one (at most FIX_TIMEOUT_MS), else
-// the last known position. Null when permission is denied or nothing is known; the job is then flagged
-// "no location". Asks for permission on first use.
+const lastKnown = () =>
+  Location.getLastKnownPositionAsync({ maxAge: 5 * 60000 }).then((p) => (p ? toCoords(p) : null)).catch(() => null)
+
+// Where the driver is, for recording a job: a recent good fix, else the fix in progress (started when the
+// screen opened) if it finishes within TAP_WAIT_MS, else the best sample seen so far, else the last known
+// position. Null when permission is denied or nothing is known; the job is then flagged "no location".
+// Asks for permission on first use.
 export async function currentCoords(): Promise<Coords | null> {
-  return recentGoodFix() || fetchFix()
+  const recent = recentGoodFix()
+  if (recent) return recent
+  const fix = fetchFix()
+  const timeout = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), TAP_WAIT_MS))
+  const r = await Promise.race([fix, timeout])
+  if (r !== 'timeout') return r
+  return partial || last?.coords || lastKnown()
 }
 
 // Start locating now so a later currentCoords() does not wait for the GPS. Call it when a screen with a
@@ -81,10 +98,9 @@ export function prefetchCoords(): Promise<Coords | null> {
   return recent ? Promise.resolve(recent) : fetchFix()
 }
 
-// Last known position without prompting for permission; for distances shown on screen.
+// Last known position without prompting for permission; for distances shown on screen, so any recent fix will do.
 export async function quietCoords(): Promise<Coords | null> {
-  const recent = recentGoodFix()
-  if (recent) return recent
+  if (last && Date.now() - last.at < REUSE_MS) return last.coords
   const perm = await Location.getForegroundPermissionsAsync()
   if (perm.status !== 'granted') return null
   const pos = await Location.getLastKnownPositionAsync({ maxAge: 10 * 60000 }).catch(() => null)
@@ -108,4 +124,5 @@ export function useLocationFix(): Coords | null {
 export function resetGeoCache() {
   last = null
   pending = null
+  partial = null
 }

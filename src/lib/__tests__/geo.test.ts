@@ -1,4 +1,4 @@
-import { currentCoords, FIX_TIMEOUT_MS, prefetchCoords, quietCoords, resetGeoCache } from '../geo'
+import { currentCoords, FIX_TIMEOUT_MS, prefetchCoords, quietCoords, resetGeoCache, TAP_WAIT_MS } from '../geo'
 
 const Location = jest.requireMock('expo-location') as {
   requestForegroundPermissionsAsync: jest.Mock
@@ -44,23 +44,38 @@ async function settle(p: Promise<unknown>, ms = 0) {
 }
 
 test('ends the wait at the first sample accurate enough', async () => {
-  const remove = gps([pos(-33, 120), pos(-33.1, 30)])
+  const remove = gps([pos(-33, 150), pos(-33.1, 30)])
   const c = await settle(currentCoords())
   expect(c).toEqual({ lat: -33.1, lng: 150, accuracy: 30 })
   expect(remove).toHaveBeenCalled()
 })
 
-test('returns the best sample seen when the timeout passes', async () => {
-  gps([pos(-33, 120), pos(-33.2, 80)])
-  const c = await settle(currentCoords(), FIX_TIMEOUT_MS)
-  expect(c).toEqual({ lat: -33.2, lng: 150, accuracy: 80 })
+test('a tap takes the best sample so far after TAP_WAIT_MS, while the watch carries on', async () => {
+  gps([pos(-33, 300), pos(-33.2, 150)])
+  const c = await settle(currentCoords(), TAP_WAIT_MS)
+  expect(c).toEqual({ lat: -33.2, lng: 150, accuracy: 150 })
+  // The prefetch keeps the best sample for the next screen.
+  await jest.advanceTimersByTimeAsync(FIX_TIMEOUT_MS)
+  expect(await quietCoords()).toEqual({ lat: -33.2, lng: 150, accuracy: 150 })
+})
+
+test('a prefetch keeps the best sample seen when the watch times out', async () => {
+  gps([pos(-33, 120), pos(-33.2, 110)])
+  const c = await settle(prefetchCoords(), FIX_TIMEOUT_MS)
+  expect(c).toEqual({ lat: -33.2, lng: 150, accuracy: 110 })
 })
 
 test('falls back to the last known position when no sample arrives', async () => {
   gps([])
   Location.getLastKnownPositionAsync.mockResolvedValue(pos(-34, 500))
-  const c = await settle(currentCoords(), FIX_TIMEOUT_MS)
+  const c = await settle(currentCoords(), TAP_WAIT_MS)
   expect(c).toEqual({ lat: -34, lng: 150, accuracy: 500 })
+})
+
+test('a sample at Wi-Fi accuracy (65 m) is good enough', async () => {
+  const remove = gps([pos(-33, 65)])
+  expect(await settle(currentCoords())).toEqual({ lat: -33, lng: 150, accuracy: 65 })
+  expect(remove).toHaveBeenCalled()
 })
 
 test('null without permission', async () => {
