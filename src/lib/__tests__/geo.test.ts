@@ -1,4 +1,4 @@
-import { currentCoords, FIX_TIMEOUT_MS, prefetchCoords, quietCoords, resetGeoCache, TAP_WAIT_MS } from '../geo'
+import { currentCoords, FIX_TIMEOUT_MS, instantCoords, prefetchCoords, quietCoords, resetGeoCache, STALE_MS, TAP_WAIT_MS } from '../geo'
 
 const Location = jest.requireMock('expo-location') as {
   requestForegroundPermissionsAsync: jest.Mock
@@ -94,20 +94,20 @@ test('a prefetched good fix is reused without asking the GPS again', async () =>
   expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1)
 })
 
-test('a poor fix is not reused', async () => {
+test('a poor fix is still used rather than making the driver wait', async () => {
   gps([pos(-33, 300)])
   await settle(prefetchCoords(), FIX_TIMEOUT_MS)
-  gps([pos(-33.5, 10)])
-  expect(await settle(currentCoords())).toEqual({ lat: -33.5, lng: 150, accuracy: 10 })
-  expect(Location.watchPositionAsync).toHaveBeenCalledTimes(2)
+  expect(await currentCoords()).toEqual({ lat: -33, lng: 150, accuracy: 300 })
+  expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1)
 })
 
 test('a stale fix is replaced', async () => {
   gps([pos(-33, 10)])
   await settle(prefetchCoords())
-  await jest.advanceTimersByTimeAsync(61000)
+  await jest.advanceTimersByTimeAsync(STALE_MS + 1000)
   gps([pos(-33.5, 10)])
   expect(await settle(currentCoords())).toEqual({ lat: -33.5, lng: 150, accuracy: 10 })
+  expect(Location.watchPositionAsync).toHaveBeenCalledTimes(2)
 })
 
 test('callers waiting at the same time share one GPS request', async () => {
@@ -115,5 +115,44 @@ test('callers waiting at the same time share one GPS request', async () => {
   const a = prefetchCoords()
   const b = currentCoords()
   await settle(Promise.all([a, b]))
+  expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1)
+})
+
+describe('instantCoords (actions that never wait)', () => {
+  test('null when nothing is known yet, without touching the GPS', async () => {
+    gps([pos(-33, 10)])
+    expect(await instantCoords()).toBeNull()
+    expect(Location.watchPositionAsync).not.toHaveBeenCalled()
+  })
+
+  test('the best sample of the watch in progress', async () => {
+    gps([pos(-33, 300), pos(-33.2, 150)])
+    prefetchCoords()
+    await jest.advanceTimersByTimeAsync(0)
+    expect(await instantCoords()).toEqual({ lat: -33.2, lng: 150, accuracy: 150 })
+  })
+
+  test('the last fix while it is not stale', async () => {
+    gps([pos(-33, 40)])
+    await settle(prefetchCoords())
+    await jest.advanceTimersByTimeAsync(STALE_MS - 1000)
+    expect(await instantCoords()).toEqual({ lat: -33, lng: 150, accuracy: 40 })
+    await jest.advanceTimersByTimeAsync(2000)
+    Location.getLastKnownPositionAsync.mockResolvedValue(pos(-34, 500))
+    expect(await instantCoords()).toEqual({ lat: -34, lng: 150, accuracy: 500 })
+  })
+
+  test('the system last known position without prompting for permission', async () => {
+    Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' })
+    Location.getLastKnownPositionAsync.mockResolvedValue(pos(-34, 500))
+    expect(await instantCoords()).toBeNull()
+    expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled()
+  })
+})
+
+test('finishing uses the fix in hand and asks the GPS only when nothing is known', async () => {
+  gps([pos(-33, 40)])
+  await settle(prefetchCoords())
+  expect(await currentCoords()).toEqual({ lat: -33, lng: 150, accuracy: 40 })
   expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1)
 })

@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DueBadge, JobRow } from '@/components/items'
 import { Button, Card, Divider, EmptyState, Icon, IconBadge, Pill, Row, SectionTitle, toneColor } from '@/components/ui'
 import { addressOf, deviceTitle, dueState, fmtDate, fmtL, fmtM, nextService } from '@/lib/format'
-import { currentCoords, distanceM, useLocationFix } from '@/lib/geo'
+import { distanceM, instantCoords, useLocationFix } from '@/lib/geo'
 import { issueLabel, openIssues } from '@/lib/issues'
 import { useIndex, useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
@@ -17,7 +17,7 @@ export default function DeviceScreen() {
   const insets = useSafeAreaInsets()
   const { data, profile, canWrite, startJob, serviceOnly, viewMode } = useStore()
   const ix = useIndex()
-  // Locating starts as the page opens, so Start pickup does not wait for the GPS.
+  // Locating starts as the page opens; Start pickup takes whatever is known by then without waiting.
   const here = useLocationFix()
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -47,9 +47,8 @@ export default function DeviceScreen() {
       if (!ok) return
     }
     try {
-      setBusy('Getting your location…')
-      const coords = await currentCoords()
       setBusy('Starting pickup…')
+      const coords = await instantCoords()
       const p = await startJob(dev.id, coords)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       router.replace(`/job/${p.id}`)
@@ -69,9 +68,8 @@ export default function DeviceScreen() {
         text: 'Record service', onPress: async (note?: string) => {
           if (!dev) return
           try {
-            setBusy('Getting your location…')
-            const coords = await currentCoords()
             setBusy('Saving…')
+            const coords = await instantCoords()
             const p = await serviceOnly(dev.id, { note: note || '', coords })
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
             router.replace(`/job/${p.id}`)

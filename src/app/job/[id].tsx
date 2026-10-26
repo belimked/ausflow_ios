@@ -69,7 +69,7 @@ function FinishForm({ pickup, onDone }: { pickup: Pickup; onDone: (p: Pickup) =>
   const destinations = nearbyFacilities(data?.facilities || [], dev?.lat != null && dev?.lng != null ? { lat: dev.lat, lng: dev.lng } : null).slice(0, 4)
   const wastes = wasteOptions(pickup.waste || dev?.waste)
   const [busy, setBusy] = useState<string | null>(null)
-  // Locating starts as the form opens, so Complete does not wait for the GPS.
+  // Locating starts as the form opens; Complete uses that fix and only waits for the GPS when nothing is known.
   useLocationFix()
 
   const cap = dev?.capacity || 0

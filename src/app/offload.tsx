@@ -7,7 +7,7 @@ import { Button, Card, Divider, EmptyState, Icon, Row, SectionTitle, toneColor }
 import { LOCATION_FLAG_METRES } from '@/lib/config'
 import { UNLOAD_DIFF_WARN, cycleWaste, nearbyFacilities, volumeGap } from '@/lib/delivery'
 import { fmtL, fmtM } from '@/lib/format'
-import { currentCoords, distanceM, useLocationFix } from '@/lib/geo'
+import { distanceM, instantCoords, useLocationFix } from '@/lib/geo'
 import { currentCycle } from '@/lib/load'
 import { useIndex, useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
@@ -23,7 +23,7 @@ export default function Offload() {
   const { data, profile, unload } = useStore()
   const ix = useIndex()
   const [facilityId, setFacilityId] = useState(params.facilityId || '')
-  // Locating starts as the page opens: nearby facilities sort by it, and Deliver does not wait for the GPS.
+  // Locating starts as the page opens: nearby facilities sort by it, and Deliver takes whatever is known by then without waiting.
   const here = useLocationFix()
   const [busy, setBusy] = useState<string | null>(null)
   const [done, setDone] = useState<Unload | null>(null)
@@ -50,9 +50,8 @@ export default function Offload() {
   async function deliver() {
     if (!facility) return
     try {
-      setBusy('Getting your location…')
-      const coords = await currentCoords()
       setBusy('Saving…')
+      const coords = await instantCoords()
       const u = await unload({ facilityId: facility.id, volume: v, waste, coords })
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       setDone(u)

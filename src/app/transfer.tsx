@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Card, Divider, EmptyState, Icon, Row, SectionTitle, toneColor } from '@/components/ui'
 import { overCapacity } from '@/lib/delivery'
 import { fmtL } from '@/lib/format'
-import { currentCoords, useLocationFix } from '@/lib/geo'
+import { instantCoords, useLocationFix } from '@/lib/geo'
 import { useIndex, useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
 import type { Transfer, Vehicle } from '@/lib/types'
@@ -21,7 +21,7 @@ export default function TransferScreen() {
   const [toId, setToId] = useState(params.toVehicleId || '')
   const [busy, setBusy] = useState<string | null>(null)
   const [done, setDone] = useState<Transfer | null>(null)
-  // Locating starts as the page opens, so Transfer does not wait for the GPS.
+  // Locating starts as the page opens, and Transfer takes whatever is known by then without waiting.
   useLocationFix()
 
   if (done) return <Transferred transfer={done} />
@@ -47,9 +47,8 @@ export default function TransferScreen() {
       if (!ok) return
     }
     try {
-      setBusy('Getting your location…')
-      const coords = await currentCoords()
       setBusy('Saving…')
+      const coords = await instantCoords()
       const t = await transfer(to.id, coords)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       setDone(t)

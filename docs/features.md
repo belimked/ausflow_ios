@@ -120,7 +120,7 @@
 | 动作按钮（上下文相关） | 开始清运 / 完成（本人进行中）/ 他人进行中 / 先完成你当前清运 / 去设置身份 | `device/[id].tsx` `action` |
 | 非 Active 设备确认 | 设备非 Active 时开始清运需二次确认 | `device/[id].tsx` `start` |
 | 授权设备 | 只能对**本公司负责**的设备作业：扫到其他公司（或未分配公司）的设备时提示 "Not an authorised device"；设备页显示红色提示且无开单按钮；命令层同样拒绝 | `lib/scan.ts`、`device/[id].tsx`、`commands.ts` `readyToWork` |
-| 定位预取 | 设备页、完成页、转车页、卸货页打开即开始定位，提交时 60 秒内精度 ≤100 m 的定位直接使用；否则最多再等 2s，然后用已见最好的样本 | `geo.ts` `useLocationFix` |
+| 定位预取 | 设备页、完成页、转车页、卸货页打开即在后台定位一次（首次申请权限）。Start pickup、Service only、Transfer、Offload 提交时直接拿手头坐标，不等待，没有则记 No GPS；Finish pickup 直接拿后台坐标，没有时才向 GPS 请求一次，最多等 2s | `geo.ts` `useLocationFix` |
 | 问题区块 | 列出该设备未关闭的问题（分类、描述、日期、上报人）；可写账号可"上报问题" | `device/[id].tsx`、`lib/issues.ts` |
 | 仅服务不收料 | 记录"已服务但未收料"：生成 0 L、`Service only` 的已完成记录，更新上次服务并写变更日志（记录方式待客户确认） | `device/[id].tsx` `recordService`、`commands.ts` `planServiceOnly` |
 | 进场距离预取 | 进入页面静默取最近已知定位，用于显示"多少米外" | `device/[id].tsx` + `quietCoords` |
