@@ -1,0 +1,37 @@
+appId: com.ausflow
+name: Admin opens Alerts from the dashboard and Ops tickets from Me
+tags:
+  - auth
+  - admin
+---
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      E2E_USERNAME: ${E2E_ADMIN_USERNAME}
+      E2E_PASSWORD: ${E2E_ADMIN_PASSWORD}
+# Alerts are derived on the phone from /state with the web console's rules.
+- tapOn:
+    id: "dash-alerts"
+- assertVisible: "MONITOR"
+- assertVisible: "Unread only"
+- assertVisible: "Closed too"
+- tapOn: "Critical \\d+"
+- tapOn: "All \\d+"
+- tapOn: "Back"
+- assertVisible:
+    id: "dash-welcome"
+# Tickets come from the /tickets API (not /state), so the list loads after the screen opens.
+- tapOn:
+    id: "tab-me"
+- tapOn: ".*Ops tickets.*"
+- assertVisible: "MONITOR"
+- extendedWaitUntil:
+    visible: "Mailbox .*|No tickets here.|From .*|Offline .*"
+    timeout: 30000
+- tapOn: "Resolved \\d+"
+- extendedWaitUntil:
+    # iOS merges the whole ticket card into one element ("Normal, <subject>, <date>, From …").
+    visible: "No tickets here.|.*From .*"
+    timeout: 15000
+- tapOn: "Back"
+- assertVisible: "Console view"

@@ -1,0 +1,35 @@
+appId: com.ausflow
+name: Admin searches the directory for the test company and opens its drivers
+tags:
+  - auth
+  - admin
+  - data
+---
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      E2E_USERNAME: ${E2E_ADMIN_USERNAME}
+      E2E_PASSWORD: ${E2E_ADMIN_PASSWORD}
+- tapOn:
+    id: "tab-me"
+- tapOn: ".*Companies & people.*"
+- assertVisible: "Transport companies"
+- tapOn: "Company, driver, rego, site"
+- inputText: ${E2E_COMPANY}
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 3000
+# Tap the row by id: the search field also carries the company name as its text.
+- tapOn:
+    id: "directory-row-.*"
+- assertVisible: "TRANSPORT COMPANY"
+- assertVisible: "Compliance"
+- tapOn: "Drivers \\d+"
+- tapOn: "${E2E_DRIVER},.*|${E2E_DRIVER}"
+- assertVisible: "DRIVER"
+- assertVisible: "Slow legs"
+- scrollUntilVisible:
+    element: "Working days"
+    direction: DOWN
+- tapOn: "Back"
+- assertVisible: "TRANSPORT COMPANY"

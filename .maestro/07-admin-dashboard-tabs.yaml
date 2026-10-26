@@ -1,0 +1,65 @@
+appId: com.ausflow
+name: Admin signs in to the console, sees the dashboard, Devices, Records and Me tabs, signs out
+tags:
+  - auth
+  - admin
+---
+# Console roles land on the dashboard instead of Today (lib/role.ts). Same sign-in subflow, admin account.
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      E2E_USERNAME: ${E2E_ADMIN_USERNAME}
+      E2E_PASSWORD: ${E2E_ADMIN_PASSWORD}
+- assertVisible:
+    id: "dash-welcome"
+- assertVisible: "OPS CONSOLE"
+# KPI tiles and the sections below them (figures depend on UAT data, so only their presence is checked).
+- assertVisible:
+    id: "dash-kpi-active"
+- assertVisible:
+    id: "dash-kpi-overdue"
+- assertVisible: "Pump-outs"
+- scrollUntilVisible:
+    element: "Overdue by transport company"
+    direction: DOWN
+# Tapping the Active devices tile opens the Devices tab.
+- scrollUntilVisible:
+    element:
+      id: "dash-kpi-active"
+    direction: UP
+- tapOn:
+    id: "dash-kpi-active"
+- assertVisible: "ASSETS"
+- assertVisible: ".*sorted by.*"
+- assertVisible:
+    id: "admin-devices-search"
+# Records: range and kind segments, stat tiles.
+- tapOn:
+    id: "tab-records"
+- assertVisible: "OPERATIONS"
+- tapOn: "30 days"
+- assertVisible: "Jobs"
+- assertVisible: "Collected"
+- tapOn: "Transfers \\d+"
+- assertVisible: "Moved"
+# Me: role and view tags, console entries.
+- tapOn:
+    id: "tab-me"
+- assertVisible: "Console view"
+- assertVisible: "Admin"
+# Pressable rows read as one element ("title, subtitle"), so match loosely.
+- assertVisible: ".*Companies & people.*"
+- assertVisible: ".*QR codes & labels.*"
+- scrollUntilVisible:
+    element:
+      id: "me-sign-out"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "me-sign-out"
+- assertVisible: "Sign out\\?"
+- tapOn: "Yes, sign out"
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 15000
