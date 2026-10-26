@@ -18,6 +18,8 @@ export const FIX_TIMEOUT_MS = 4000
 // How long a tap waits for a fix in progress; after that the best sample so far (or the last known
 // position) is used and the watch carries on for the next screen.
 export const TAP_WAIT_MS = 2000
+// Finishing a pickup with a fix older than this asks the GPS again first (a job can take a while).
+export const FRESH_MS = 2 * 60000
 
 const toCoords = (pos: Location.LocationObject): Coords =>
   ({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy })
@@ -78,31 +80,40 @@ function fetchFix(): Promise<Coords | null> {
   return pending
 }
 
-const lastKnown = () =>
-  Location.getLastKnownPositionAsync({ maxAge: 5 * 60000 }).then((p) => (p ? toCoords(p) : null)).catch(() => null)
+const lastKnownAt = () =>
+  Location.getLastKnownPositionAsync({ maxAge: STALE_MS })
+    .then((p) => (p ? { coords: toCoords(p), at: p.timestamp || 0 } : null)).catch(() => null)
+const lastKnown = () => lastKnownAt().then((k) => k?.coords ?? null)
+
+// What is known right now and how old it is; null when nothing is known or permission was refused.
+async function known(): Promise<{ coords: Coords; at: number } | null> {
+  const recent = last && Date.now() - last.at < STALE_MS ? last : null
+  if (partial && better(recent?.coords ?? null, partial)) return { coords: partial, at: Date.now() }
+  if (recent) return recent
+  const perm = await Location.getForegroundPermissionsAsync()
+  if (perm.status !== 'granted') return null
+  return lastKnownAt()
+}
 
 // The best position known right now, without waiting for the GPS: the best sample of the watch in progress
 // (started when the screen opened), the last fix, or the system's last known position. Null when nothing
 // is known or permission was refused; the record is then flagged "no location". For actions that must not
 // wait: Start pickup, Service only, Transfer, Offload.
 export async function instantCoords(): Promise<Coords | null> {
-  const recent = last && Date.now() - last.at < STALE_MS ? last.coords : null
-  if (partial && better(recent, partial)) return partial
-  if (recent) return recent
-  const perm = await Location.getForegroundPermissionsAsync()
-  if (perm.status !== 'granted') return null
-  return lastKnown()
+  return (await known())?.coords ?? null
 }
 
-// Where the driver is, for finishing a pickup: whatever is known right now (see instantCoords); only when
-// nothing is known does it ask the GPS once, for at most TAP_WAIT_MS. Asks for permission on first use.
+// Where the driver is, for finishing a pickup: what is known right now (see instantCoords) when it is less
+// than FRESH_MS old. Otherwise the GPS is asked once, for at most TAP_WAIT_MS, and the best sample so far
+// or the older fix is taken. Asks for permission on first use.
 export async function currentCoords(): Promise<Coords | null> {
-  const known = await instantCoords()
-  if (known) return known
+  const k = await known()
+  if (k && Date.now() - k.at < FRESH_MS) return k.coords
   const fix = fetchFix()
   const timeout = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), TAP_WAIT_MS))
   const r = await Promise.race([fix, timeout])
-  return r === 'timeout' ? partial || lastKnown() : r
+  if (r !== 'timeout') return r || k?.coords || null
+  return partial || k?.coords || lastKnown()
 }
 
 // Start locating now (asking for permission on first use) so a later instantCoords() or currentCoords() has

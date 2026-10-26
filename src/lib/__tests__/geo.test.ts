@@ -1,4 +1,4 @@
-import { currentCoords, FIX_TIMEOUT_MS, instantCoords, prefetchCoords, quietCoords, resetGeoCache, STALE_MS, TAP_WAIT_MS } from '../geo'
+import { currentCoords, FIX_TIMEOUT_MS, FRESH_MS, instantCoords, prefetchCoords, quietCoords, resetGeoCache, STALE_MS, TAP_WAIT_MS } from '../geo'
 
 const Location = jest.requireMock('expo-location') as {
   requestForegroundPermissionsAsync: jest.Mock
@@ -16,7 +16,7 @@ jest.mock('expo-location', () => ({
   watchPositionAsync: jest.fn(),
 }))
 
-const pos = (lat: number, accuracy: number) => ({ coords: { latitude: lat, longitude: 150, accuracy } })
+const pos = (lat: number, accuracy: number) => ({ coords: { latitude: lat, longitude: 150, accuracy }, timestamp: Date.now() })
 
 // The GPS feeds `samples` in order; the subscription records when it is removed.
 function gps(samples: ReturnType<typeof pos>[]) {
@@ -101,13 +101,21 @@ test('a poor fix is still used rather than making the driver wait', async () => 
   expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1)
 })
 
-test('a stale fix is replaced', async () => {
+test('finishing with a fix older than FRESH_MS asks the GPS again', async () => {
   gps([pos(-33, 10)])
   await settle(prefetchCoords())
-  await jest.advanceTimersByTimeAsync(STALE_MS + 1000)
+  await jest.advanceTimersByTimeAsync(FRESH_MS + 1000)
   gps([pos(-33.5, 10)])
   expect(await settle(currentCoords())).toEqual({ lat: -33.5, lng: 150, accuracy: 10 })
   expect(Location.watchPositionAsync).toHaveBeenCalledTimes(2)
+})
+
+test('finishing keeps the older fix when the GPS gives nothing in time', async () => {
+  gps([pos(-33, 10)])
+  await settle(prefetchCoords())
+  await jest.advanceTimersByTimeAsync(FRESH_MS + 1000)
+  gps([])
+  expect(await settle(currentCoords(), TAP_WAIT_MS)).toEqual({ lat: -33, lng: 150, accuracy: 10 })
 })
 
 test('callers waiting at the same time share one GPS request', async () => {

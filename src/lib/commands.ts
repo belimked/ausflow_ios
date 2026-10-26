@@ -48,9 +48,11 @@ function serviceDevice(seq: Record<string, number>, dev: Device, at: string, use
   return { device: { ...dev, lastService: at }, log, seq: cl.seq }
 }
 
+// "Away from device" only when the phone was certainly that far: the fix's accuracy radius is subtracted, since
+// the driver's position is whatever the phone knows at the tap (often a coarse Wi-Fi sample).
 function locationFlags(distance: number | null, coords: Coords | null) {
   const flags: PickupFlag[] = []
-  if (distance != null && distance > LOCATION_FLAG_METRES) flags.push('location')
+  if (distance != null && distance - (coords?.accuracy ?? 0) > LOCATION_FLAG_METRES) flags.push('location')
   if (!coords) flags.push('nolocation')
   return flags
 }

@@ -35,7 +35,7 @@ describe('startPickup', () => {
 
 describe('finishPickup', () => {
   const running = pickup({ status: 'ongoing', volume: null, endAt: null, distance: 5 })
-  const finish = (over: { volume?: number; coords?: typeof here | null }, d = data({ pickups: [running], seq: { CL: 9 } })) =>
+  const finish = (over: { volume?: number; coords?: { lat: number; lng: number; accuracy?: number } | null }, d = data({ pickups: [running], seq: { CL: 9 } })) =>
     planCommand(d, { kind: 'finishPickup', at, pickupId: 'PK0001', volume: over.volume ?? 400, note: '  gate locked ', coords: over.coords === undefined ? here : over.coords, userName: 'Sam' })
 
   it('completes the pickup, updates last service and logs the change', () => {
@@ -51,6 +51,9 @@ describe('finishPickup', () => {
 
   it('flags a finish far from the device', () => {
     expect((finish({ coords: { lat: -34.94, lng: 138.6007 } }).result as Pickup).flags).toEqual(['location'])
+    // ~300 m away: a coarse fix that could still be within 200 m of the device is not flagged, a sharp one is.
+    expect((finish({ coords: { lat: -34.9312, lng: 138.6007, accuracy: 150 } }).result as Pickup).flags).toEqual([])
+    expect((finish({ coords: { lat: -34.9312, lng: 138.6007, accuracy: 50 } }).result as Pickup).flags).toEqual(['location'])
   })
 
   it('flags a missing location and keeps the start distance', () => {
