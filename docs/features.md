@@ -241,6 +241,13 @@
 | 标记 `capacity` | 录入体积 > 设备容量 | `store.tsx` `finishJob` |
 | 到期判断 | `nextService = lastService + freqWeeks` → 逾期/≤7天将到期/正常/无计划 | `format.ts` `dueState` |
 
+## 13a. 管理端司机行程与警报
+
+| 功能 | 说明 | 代码位置 |
+|---|---|---|
+| Working days 行程 | 按当地日期分组；相邻事件从上一事件结束到下一事件开始计算直线距离及时间。Slow leg 保持原有规则；Fast leg 需 GPS、距离 ≥1 km，按毫秒计算的直线速度 >100 km/h（首个事件不计）。每日显示 fast/slow 次数，地图标注 fast 速度 | `lib/admin.ts`、`app/driver/[id].tsx`、`app/routemap.tsx` |
+| Impossibly fast leg 警报 | 最近 14 天内、非未来的快速行程显示在 Alerts 的 driver 类别；>200 km/h 为 Critical，否则 Warning；可跳转司机 Working days，警报 ID 与 web 后台一致 | `lib/alerts.ts`、`app/alerts.tsx` |
+
 ## 14. 暂未实现 / 已砍功能
 
 相对老 WasteID（QR2id App）司机端，以下功能当前**未包含**：

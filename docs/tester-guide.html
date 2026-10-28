@@ -62,7 +62,7 @@
 <div class="wrap">
 
 <div class="card toc">
-  <a href="#install">0 安装</a><a href="#login">1 登录</a><a href="#vehicle">2 上车</a><a href="#pickup">3 收料</a><a href="#issue">4 问题上报</a><a href="#offload">5 卸料转料</a><a href="#offline">6 离线</a><a href="#trailer">7 拖车</a><a href="#account">8 账号</a><a href="#report">反馈</a>
+  <a href="#install">0 安装</a><a href="#login">1 登录</a><a href="#vehicle">2 上车</a><a href="#pickup">3 收料</a><a href="#issue">4 问题上报</a><a href="#offload">5 卸料转料</a><a href="#offline">6 离线</a><a href="#trailer">7 拖车</a><a href="#account">8 账号</a><a href="#legs">9 行程警报</a><a href="#report">反馈</a>
 </div>
 
 <div class="card">
@@ -172,6 +172,15 @@
     <li><input type="checkbox"><div><b>请回答：现场实际作业用不用拖车/挂车？怎么用？</b><small>Tell us whether trailers are really used in the field and how.</small></div></li>
   </ul>
   <div class="note danger">拖车只是演示，数据只存在手机上，不会上传。你的反馈决定它要不要做成正式功能。<br><span class="en">Demo only: trailer data stays on the phone. Your feedback decides whether it becomes a real feature.</span></div>
+</div>
+
+<div class="card" id="legs">
+  <h2>9 司机行程警报 <span class="en">Driver legs and alerts (admin)</span></h2>
+  <p>在管理端打开司机 → Working days：相邻事件间直线距离至少 1 km、速度超过 100 km/h 时出现红色 Fast leg 标签、速度和每日次数。Slow leg 保留；当日第一站或无 GPS 不会标记。<br><span class="en">Open Driver → Working days. A leg over 1 km at more than 100 km/h straight-line speed shows Fast leg, speed and daily count. Slow leg remains; no GPS or first stop never counts.</span></p>
+  <ul class="check">
+    <li><input type="checkbox"><div><b>约 10 km / 1 分钟的行程显示 Fast leg；10 km / 20 分钟不显示</b><small>10 km in 1 minute is fast; 10 km in 20 minutes is not.</small></div></li>
+    <li><input type="checkbox"><div><b>Alerts → Impossibly fast leg，核对距离、时长、车牌，点击进入司机页</b><small>Recent fast legs appear as driver alerts; over 200 km/h is Critical, otherwise Warning. Check the alert opens the driver.</small></div></li>
+  </ul>
 </div>
 
 <div class="card" id="account">

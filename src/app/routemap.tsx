@@ -81,7 +81,7 @@ export default function RouteMap() {
               <Text key={e.id} onPress={() => setPicked(on ? null : i)} style={[s.leg, on && { backgroundColor: c.primaryTint }]}>
                 <Text style={{ color: PALETTE[i % PALETTE.length], fontWeight: '800' }}>{e.kind === 'unload' ? 'U' : e.kind === 'transfer' ? 'T' : i + 1}  </Text>
                 <Text style={{ color: c.text, fontWeight: on ? '700' : '500' }}>{titleOf(e)}</Text>
-                <Text style={{ color: c.faint }}>  {[fmtMin(l.minutes), l.metres != null ? fmtM(l.metres) : null, l.slow ? `slow +${fmtMin(l.over!)}` : null].filter(Boolean).join(' · ')}  {fmtTime(e.at)}</Text>
+                <Text style={{ color: c.faint }}>  {[fmtMin(l.minutes), l.metres != null ? fmtM(l.metres) : null, l.fast ? `fast ${Math.round(l.kmh!)} km/h` : null, l.slow ? `slow +${fmtMin(l.over!)}` : null].filter(Boolean).join(' · ')}  {fmtTime(e.at)}</Text>
               </Text>
             )
           })}

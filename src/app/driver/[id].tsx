@@ -2,7 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMemo, useRef, useState } from 'react'
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native'
 import { AHeader, ARow, IconButton, SectionCard, StatTile, Tag } from '@/components/admin'
-import { legsOf, workDays, type DayEvent } from '@/lib/admin'
+import { beginOf, legDuration, legsOf, workDays, type DayEvent } from '@/lib/admin'
 import { deviceTitle, fmtDay, fmtL, fmtM, fmtTime } from '@/lib/format'
 import { distanceM } from '@/lib/geo'
 import { useIndex, useStore } from '@/lib/store'
@@ -80,6 +80,7 @@ export default function DriverScreen() {
           <StatTile label="Collected" value={fmtL(shown?.litres ?? 0).replace(' L', '')} />
           <StatTile label="On road" value={shown ? fmtMin(shown.minutes) || '0' : '0'} />
           <StatTile label="Slow legs" value={String(shown?.slow ?? 0)} color={shown?.slow ? c.dangerText : undefined} />
+          <StatTile label="Fast legs" value={String(shown?.fast ?? 0)} color={shown?.fast ? c.dangerText : undefined} />
           <StatTile label="Flags" value={String(shown?.flags ?? 0)} color={shown?.flags ? c.warningText : undefined} />
         </View>
 
@@ -98,6 +99,7 @@ export default function DriverScreen() {
                     <Text style={s.legTitle} numberOfLines={2}>{title(e)}</Text>
                     <Text style={s.legSub} numberOfLines={2}>{[l.fromAt ? `from ${fmtTime(l.fromAt)}` : null, fmtMin(l.minutes), l.metres != null ? fmtM(l.metres) : null].filter(Boolean).join(' · ') || 'First stop'}</Text>
                     <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                      {l.fast ? <Tag label={`Fast leg · ${fmtM(l.metres)} in ${legDuration(new Date(beginOf(e)).getTime() - new Date(l.fromAt!).getTime())} · ${Math.round(l.kmh!)} km/h`} tone="rose" /> : null}
                       {l.slow ? <Tag label={`Slow leg · +${fmtMin(l.over!)} over a ${fmtMin(l.expected!)} drive`} tone="amber" /> : null}
                       {flags.includes('nolocation') ? <Tag label="No GPS" tone="amber" /> : null}
                       {flags.includes('location') ? <Tag label="Away from device" tone="amber" /> : null}
@@ -126,7 +128,7 @@ export default function DriverScreen() {
           {v.days.slice(0, 30).map((d, i) => (
             <View key={d.day} style={d.day === day ? { backgroundColor: c.primaryTint } : undefined}>
               <ARow title={d.day === todayKey ? `Today · ${fmtDay(d.day + 'T12:00:00')}` : fmtDay(d.day + 'T12:00:00')} subtitle={`${d.jobs} job${d.jobs === 1 ? '' : 's'} · ${fmtL(d.litres)} · ${fmtMin(d.minutes) || '—'}`}
-                right={<View style={{ flexDirection: 'row', gap: 6 }}>{d.slow ? <Tag label={`${d.slow} slow leg${d.slow === 1 ? '' : 's'}`} tone="rose" /> : null}{d.flags ? <Tag label={`${d.flags} flag${d.flags === 1 ? '' : 's'}`} tone="amber" /> : null}{d.day === day ? <Tag label="Showing" tone="blue" /> : null}</View>}
+                right={<View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>{d.fast ? <Tag label={`${d.fast} fast leg${d.fast === 1 ? '' : 's'}`} tone="rose" /> : null}{d.slow ? <Tag label={`${d.slow} slow leg${d.slow === 1 ? '' : 's'}`} tone="rose" /> : null}{d.flags ? <Tag label={`${d.flags} flag${d.flags === 1 ? '' : 's'}`} tone="amber" /> : null}{d.day === day ? <Tag label="Showing" tone="blue" /> : null}</View>}
                 onPress={() => pick(d.day)} last={i === Math.min(v.days.length, 30) - 1} />
             </View>
           ))}

@@ -119,13 +119,23 @@ export type DayEvent =
 
 // One leg of a day: from the end of the previous event to the start of this one. `expected` is the drive the
 // straight-line distance should take; `over` is how much longer the gap was.
-export interface Leg { event: DayEvent; fromAt: string | null; minutes: number | null; metres: number | null; expected: number | null; over: number | null; slow: boolean }
+export interface Leg { event: DayEvent; prev: DayEvent | null; fromAt: string | null; minutes: number | null; metres: number | null; expected: number | null; over: number | null; slow: boolean; fast: boolean; kmh: number | null }
 
-export interface WorkDay { day: string; events: DayEvent[]; jobs: number; litres: number; firstAt: string; lastAt: string; minutes: number; flags: number; slow: number }
+export interface WorkDay { day: string; events: DayEvent[]; jobs: number; litres: number; firstAt: string; lastAt: string; minutes: number; flags: number; slow: number; fast: number }
 
 // Slow legs, the same rule as the web console's driver log: the expected drive is the straight-line distance × ROAD_FACTOR
 // at EST_SPEED_KMH; a leg is slow when the gap exceeds that by more than SLOW_LEG_MINUTES and by more than the drive itself.
 export const ROAD_FACTOR = 1.3, EST_SPEED_KMH = 40, SLOW_LEG_MINUTES = 60
+export const FAST_MIN_M = 1000, FAST_MAX_KMH = 100
+
+// Use the unrounded timestamp gap and straight-line distance; never infer speed without both.
+export function fastLeg(gapMs: number | null, metres: number | null): { fast: boolean; kmh: number | null } {
+  if (gapMs == null || metres == null || !Number.isFinite(gapMs) || !Number.isFinite(metres)) return { fast: false, kmh: null }
+  const kmh = metres / Math.max(gapMs / 1000, 1) * 3.6
+  return { fast: metres >= FAST_MIN_M && kmh > FAST_MAX_KMH, kmh }
+}
+
+export const legDuration = (gapMs: number) => gapMs < 60000 ? `${Math.max(0, Math.round(gapMs / 1000))} s` : `${Math.max(0, Math.round(gapMs / 60000))} min`
 
 type Activity = Pick<AppData, 'pickups' | 'transfers' | 'unloads'>
 
@@ -176,11 +186,13 @@ export function workDays(d: Activity, match: { driverId?: string; vehicleId?: st
     const pickups = events.filter((e) => e.kind === 'pickup') as Extract<DayEvent, { kind: 'pickup' }>[]
     const firstAt = beginOf(events[0])
     const lastAt = events[events.length - 1].at
+    const legs = legsOf(events, distanceM)
     return {
       day, events, jobs: pickups.length, litres: pickups.reduce((n, p) => n + p.volume, 0), firstAt, lastAt,
       minutes: Math.max(0, Math.round((new Date(lastAt).getTime() - new Date(firstAt).getTime()) / 60000)),
       flags: pickups.filter((p) => p.flags.length).length,
-      slow: legsOf(events, distanceM).filter((l) => l.slow).length,
+      slow: legs.filter((l) => l.slow).length,
+      fast: legs.filter((l) => l.fast).length,
     }
   }).sort((a, b) => b.day.localeCompare(a.day))
 }
@@ -197,12 +209,14 @@ export function legsOf(events: DayEvent[], distance: Distance): Leg[] {
     const prev = i ? events[i - 1] : null
     const fromAt = prev ? prev.at : (e.kind === 'pickup' ? e.ref.startAt || null : null)
     const toAt = prev ? beginOf(e) : e.at
-    const minutes = fromAt ? Math.max(0, Math.round((new Date(toAt).getTime() - new Date(fromAt).getTime()) / 60000)) : null
+    const gapMs = fromAt ? new Date(toAt).getTime() - new Date(fromAt).getTime() : null
+    const minutes = gapMs != null ? Math.max(0, Math.round(gapMs / 60000)) : null
     const sp = startPos(e)
     const metres = prev ? distance(prev.lat, prev.lng, sp.lat, sp.lng) : null
     const expected = metres != null ? Math.round((metres * ROAD_FACTOR) / (EST_SPEED_KMH / 3.6) / 60) : null
     const over = minutes != null && expected != null ? minutes - expected : null
-    return { event: e, fromAt, minutes, metres, expected, over, slow: over != null && over > Math.max(SLOW_LEG_MINUTES, expected!) }
+    const speed = fastLeg(prev ? gapMs : null, metres)
+    return { event: e, prev, fromAt, minutes, metres, expected, over, slow: over != null && over > Math.max(SLOW_LEG_MINUTES, expected!), ...speed }
   })
 }
 

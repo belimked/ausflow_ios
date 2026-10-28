@@ -1,4 +1,4 @@
-import { dashboardSummary, deviceCounts, dueBuckets, filterDevices, legsOf, localDay, overdueByCompany, pickupsPerDay, sortByDue, workDays } from '../admin'
+import { dashboardSummary, deviceCounts, dueBuckets, filterDevices, fastLeg, legsOf, localDay, overdueByCompany, pickupsPerDay, sortByDue, workDays } from '../admin'
 import type { AppData, Device, Pickup } from '../types'
 
 const DAY = 864e5
@@ -83,6 +83,7 @@ test('work days group a driver activity by day with hours and flags', () => {
   expect(days[0].litres).toBe(2000)
   expect(days[0].flags).toBe(1)
   expect(days[0].slow).toBe(0) // no positions on these pickups, so no leg can be judged slow
+  expect(days[0].fast).toBe(0)
   expect(days[0].minutes).toBeGreaterThanOrEqual(167)
   expect(days[0].events.map((e) => e.kind)).toEqual(['pickup', 'pickup', 'unload'])
   // 1 km apart: a 90-minute gap for a 2-minute drive is a slow leg (over by more than 60 min and more than the drive).
@@ -97,6 +98,26 @@ test('work days group a driver activity by day with hours and flags', () => {
   expect(legsOf(days[0].events, () => 100_000)[1].slow).toBe(false)
   expect(legsOf(days[0].events, () => null)[1].slow).toBe(false)
   jest.useRealTimers()
+})
+
+test('fast legs use exact seconds and straight-line metres, never the first stop or missing GPS', () => {
+  expect(fastLeg(60000, 10000)).toEqual({ fast: true, kmh: 600 })
+  expect(fastLeg(20 * 60000, 10000).fast).toBe(false)
+  expect(fastLeg(0, 999).fast).toBe(false)
+  expect(fastLeg(60000, null)).toEqual({ fast: false, kmh: null })
+  // 101 km/h despite rounding to 1 min in the old slow-leg display.
+  expect(fastLeg(35644, 1000).fast).toBe(true)
+  const start = new Date(); start.setHours(12, 0, 0, 0)
+  const end = new Date(start.getTime() + 60000)
+  const d = { pickups: [pick('p1', 0, { driverId: 'D', startAt: start.toISOString(), endAt: start.toISOString(), endLat: 0, endLng: 0 })],
+    unloads: [{ id: 'u1', driverId: 'D', vehicleId: 'V', at: end.toISOString(), lat: 0, lng: 0.09, volume: 100 }], transfers: [] } as unknown as AppData
+  const day = workDays(d, { driverId: 'D' })[0]
+  const legs = legsOf(day.events, (a, b, c, e) => a == null || b == null || c == null || e == null ? null : 10000)
+  expect(legs[0].fast).toBe(false)
+  expect(legs[1].prev?.id).toBe('p1')
+  expect(legs[1].fast).toBe(true)
+  expect(legsOf(day.events, () => null)[1].fast).toBe(false)
+  expect(day.fast).toBe(1)
 })
 
 test('workDays groups by the local calendar day of the pickup start, like the web console', () => {

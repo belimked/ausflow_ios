@@ -46,6 +46,11 @@ For each item tick ✅ or note **phone model, time, what you did, what you saw**
 - [ ] "我" → "My details" 改名字 / 改密码（需当前密码）/ change name or password with the current password
 - [ ] 登出后再登录 / sign out and back in
 
+## 9. 管理端行程警报 / Admin driver legs and alerts
+- [ ] 司机 → Working days：两站相距约 10 km、间隔 1 分钟时显示 Fast leg 标签、速度和每日 fast 数；原 Slow leg 仍显示 / a 10 km leg in 1 minute shows Fast leg, speed and daily count; Slow leg remains visible
+- [ ] Alerts → 类型 Impossibly fast leg：同一行程显示司机、距离、时长、车牌；点击进入司机页（>200 km/h 为 Critical，否则 Warning）/ matching alert opens the driver; check severity and plate
+- [ ] 20 分钟走 10 km、无 GPS 或当日首站不产生 Fast leg 警报 / normal trip, missing GPS and first stop do not raise fast alerts
+
 ## 已知限制 / Known limits
 - 拖车数据不上传服务器 / trailer data stays on the phone
 - 离线时第一次打开需要之前联网登录过一次 / first launch needs one online sign-in

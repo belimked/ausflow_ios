@@ -1,4 +1,6 @@
+import { beginOf, legDuration, legsOf, workDays, type DayEvent } from './admin'
 import { dueState, fmtL, fmtM, nextService } from './format'
+import { distanceM } from './geo-math'
 import { vehicleLoads } from './load'
 import { lastServiceCompanies } from './servicedBy'
 import type { AlertStatus, AppData, Device } from './types'
@@ -8,17 +10,17 @@ import type { AlertStatus, AppData, Device } from './types'
 // one side (alertNotes) applies on the other. Rules ported: the device, driver and vehicle families; the
 // "suspicious activity" family (overload, unload over tank, waste mismatch…) stays console-only for now.
 
-export type AlertType = 'overdue' | 'longJob' | 'location' | 'capacity' | 'nolocation' | 'vehicleFull' | 'reportedIssue' | 'transportBacklog'
+export type AlertType = 'overdue' | 'longJob' | 'location' | 'capacity' | 'nolocation' | 'vehicleFull' | 'reportedIssue' | 'transportBacklog' | 'fastLeg'
 export type Severity = 'critical' | 'warning' | 'info'
 export type AlertCategory = 'device' | 'vehicle' | 'driver'
 
 export const ALERT_TYPES: Record<AlertType, string> = {
   overdue: 'Overdue pump-out', longJob: 'Job not finished', location: 'Location mismatch', capacity: 'Over capacity',
-  nolocation: 'No location', vehicleFull: 'Vehicle near full', reportedIssue: 'Reported issue', transportBacklog: 'Transport backlog',
+  nolocation: 'No location', vehicleFull: 'Vehicle near full', reportedIssue: 'Reported issue', transportBacklog: 'Transport backlog', fastLeg: 'Impossibly fast leg',
 }
 const TYPE_CATEGORY: Record<AlertType, AlertCategory> = {
   overdue: 'device', capacity: 'device', reportedIssue: 'device', vehicleFull: 'vehicle', transportBacklog: 'vehicle',
-  longJob: 'driver', location: 'driver', nolocation: 'driver',
+  longJob: 'driver', location: 'driver', nolocation: 'driver', fastLeg: 'driver',
 }
 export const SEVERITY_LABEL: Record<Severity, string> = { critical: 'Critical', warning: 'Warning', info: 'Info' }
 export const STATUS_LABEL: Record<AlertStatus, string> = { new: 'New', acknowledged: 'Acknowledged', cleared: 'Cleared', dismissed: 'Dismissed' }
@@ -63,6 +65,7 @@ export function deriveAlerts(d: AppData, now = Date.now()): Alert[] {
   const company = (id?: string | null) => name(d.companies, id)
   const devices = new Map(d.devices.map((x) => [x.id, x]))
   const push = (key: string, type: AlertType, a: Omit<Alert, 'id' | 'type' | 'category'>) => out.push({ id: alertIdOf(key), type, category: TYPE_CATEGORY[type], ...a })
+  const kind = (e: DayEvent) => e.kind === 'pickup' ? 'Pump-out' : e.kind === 'transfer' ? 'Transfer' : 'Unload'
 
   for (const issue of d.reportedIssues) {
     if (issue.status !== 'open') continue
@@ -104,6 +107,27 @@ export function deriveAlerts(d: AppData, now = Date.now()): Alert[] {
     if (flags.includes('location')) push('lo:' + p.id, 'location', { severity: 'warning', title: `Pump-out ${p.id} recorded ${fmtM(p.distance)} from device`, detail: where, at: p.endAt, to: `/job/${p.id}`, refs })
     if (flags.includes('capacity')) push('ca:' + p.id, 'capacity', { severity: 'warning', title: `Pump-out ${p.id}: ${fmtL(p.volume)} exceeds device capacity ${fmtL(dev?.capacity)}`, detail: where, at: p.endAt, to: `/job/${p.id}`, refs })
     if (flags.includes('nolocation')) push('nl:' + p.id, 'nolocation', { severity: 'info', title: `Pump-out ${p.id} submitted without location`, detail: where, at: p.endAt, to: `/job/${p.id}`, refs })
+  }
+
+  for (const dr of d.drivers) {
+    for (const day of workDays(d, { driverId: dr.id })) {
+      for (const leg of legsOf(day.events, distanceM)) {
+        if (!leg.fast || !leg.prev || leg.metres == null || leg.kmh == null || !leg.fromAt) continue
+        const at = beginOf(leg.event)
+        const time = new Date(at).getTime()
+        if (!Number.isFinite(time) || time > now || now - time > RECENT_DAYS * DAY) continue
+        const pickup = [leg.prev, leg.event].find((e) => e.kind === 'pickup')
+        const vehicleId = leg.event.kind === 'pickup' ? leg.event.ref.vehicleId :
+          leg.event.kind === 'unload' ? d.unloads.find((u) => u.id === leg.event.id)?.vehicleId :
+            d.transfers.find((t) => t.id === leg.event.id)?.fromVehicleId
+        push(`fl:${leg.prev.id}:${leg.event.id}`, 'fastLeg', {
+          severity: leg.kmh > 200 ? 'critical' : 'warning',
+          title: `${dr.name}: ${fmtM(leg.metres)} in ${legDuration(time - new Date(leg.fromAt).getTime())} (${Math.round(leg.kmh)} km/h)`,
+          detail: `${kind(leg.prev)} ${leg.prev.id} → ${kind(leg.event)} ${leg.event.id} · ${plate(vehicleId)}`,
+          at, to: `/driver/${dr.id}`, refs: { driverId: dr.id, vehicleId, pickupId: pickup?.id },
+        })
+      }
+    }
   }
 
   for (const [companyId, list] of overdueByCompany) {

@@ -58,6 +58,30 @@ test('backlog alert appears from three overdue devices per company', () => {
   expect(deriveAlerts(d).some((a) => a.type === 'transportBacklog')).toBe(true)
 })
 
+test('fast leg alerts use the shared key, severity, references and recent event start', () => {
+  const d = base()
+  const start = new Date(); start.setHours(12, 0, 0, 0)
+  if (start.getTime() > Date.now()) start.setDate(start.getDate() - 1)
+  const at = new Date(start.getTime() + 60000).toISOString()
+  d.pickups = [{ id: 'PK-fast', status: 'done', driverId: 'DR', vehicleId: 'V1', startAt: start.toISOString(), endAt: start.toISOString(), endLat: 0, endLng: 0 }]
+  d.unloads = [{ id: 'UL-fast', driverId: 'DR', vehicleId: 'V1', volume: 100, at, lat: 0, lng: 0.09 }]
+  const fast = deriveAlerts(d).filter((a) => a.type === 'fastLeg')
+  expect(fast).toHaveLength(1)
+  expect(fast[0]).toMatchObject({ id: alertIdOf('fl:PK-fast:UL-fast'), category: 'driver', severity: 'critical',
+    at, to: '/driver/DR', refs: { driverId: 'DR', vehicleId: 'V1', pickupId: 'PK-fast' } })
+  expect(fast[0].title).toMatch(/Dylan: .* in 1 min \(\d+ km\/h\)/)
+  expect(fast[0].detail).toBe('Pump-out PK-fast → Unload UL-fast · 122 4SZ')
+  d.unloads[0].at = new Date(start.getTime() + 4 * 60000).toISOString()
+  expect(deriveAlerts(d).find((a) => a.type === 'fastLeg')?.severity).toBe('warning')
+  d.unloads[0].at = new Date(start.getTime() + 20 * 60000).toISOString()
+  expect(deriveAlerts(d).filter((a) => a.type === 'fastLeg')).toHaveLength(0)
+  d.unloads[0].at = new Date(Date.now() + DAY).toISOString()
+  expect(deriveAlerts(d).filter((a) => a.type === 'fastLeg')).toHaveLength(0)
+  d.pickups[0].startAt = d.pickups[0].endAt = iso(20)
+  d.unloads[0].at = new Date(new Date(iso(20)).getTime() + 60000).toISOString()
+  expect(deriveAlerts(d).filter((a) => a.type === 'fastLeg')).toHaveLength(0)
+})
+
 test('status and read flags come from alertNotes and alertReads', () => {
   const d = base()
   const [first] = alertViews(d)
