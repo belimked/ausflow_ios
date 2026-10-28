@@ -67,7 +67,7 @@ test('fast leg alerts use the shared key, severity, references and recent event 
   d.unloads = [{ id: 'UL-fast', driverId: 'DR', vehicleId: 'V1', volume: 100, at, lat: 0, lng: 0.09 }]
   const fast = deriveAlerts(d).filter((a) => a.type === 'fastLeg')
   expect(fast).toHaveLength(1)
-  expect(fast[0]).toMatchObject({ id: alertIdOf('fl:PK-fast:UL-fast'), category: 'driver', severity: 'critical',
+  expect(fast[0]).toMatchObject({ id: alertIdOf('fl:PK-fast:UL-fast'), category: 'suspicious', severity: 'critical',
     at, to: '/driver/DR', refs: { driverId: 'DR', vehicleId: 'V1', pickupId: 'PK-fast' } })
   expect(fast[0].title).toMatch(/Dylan: .* in 1 min \(\d+ km\/h\)/)
   expect(fast[0].detail).toBe('Pump-out PK-fast → Unload UL-fast · 122 4SZ')

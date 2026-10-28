@@ -12,7 +12,7 @@ import type { AlertStatus, AppData, Device } from './types'
 
 export type AlertType = 'overdue' | 'longJob' | 'location' | 'capacity' | 'nolocation' | 'vehicleFull' | 'reportedIssue' | 'transportBacklog' | 'fastLeg'
 export type Severity = 'critical' | 'warning' | 'info'
-export type AlertCategory = 'device' | 'vehicle' | 'driver'
+export type AlertCategory = 'device' | 'vehicle' | 'driver' | 'suspicious'
 
 export const ALERT_TYPES: Record<AlertType, string> = {
   overdue: 'Overdue pump-out', longJob: 'Job not finished', location: 'Location mismatch', capacity: 'Over capacity',
@@ -20,7 +20,7 @@ export const ALERT_TYPES: Record<AlertType, string> = {
 }
 const TYPE_CATEGORY: Record<AlertType, AlertCategory> = {
   overdue: 'device', capacity: 'device', reportedIssue: 'device', vehicleFull: 'vehicle', transportBacklog: 'vehicle',
-  longJob: 'driver', location: 'driver', nolocation: 'driver', fastLeg: 'driver',
+  longJob: 'driver', location: 'driver', nolocation: 'driver', fastLeg: 'suspicious',
 }
 export const SEVERITY_LABEL: Record<Severity, string> = { critical: 'Critical', warning: 'Warning', info: 'Info' }
 export const STATUS_LABEL: Record<AlertStatus, string> = { new: 'New', acknowledged: 'Acknowledged', cleared: 'Cleared', dismissed: 'Dismissed' }
