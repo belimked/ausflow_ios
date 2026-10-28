@@ -5,6 +5,7 @@ import { AppState } from 'react-native'
 import * as api from './api'
 import { CommandError, type Command } from './commands'
 import { vehicleLoads } from './load'
+import { lastServiceCompanies } from './servicedBy'
 import { applyPayload, localView, type QueueItem, type SyncProblem } from './offline/queue'
 import * as storage from './offline/storage'
 import { PHOTO_TARGET } from './photos'
@@ -378,6 +379,7 @@ export function useIndex() {
       devices: by(data?.devices), locations: by(data?.locations), drivers: by(data?.drivers),
       vehicles: by(data?.vehicles), companies: by(data?.companies), facilities: by(data?.facilities),
       pickups: by(data?.pickups), ongoingByDevice,
+      servicedBy: lastServiceCompanies(data?.pickups || []),
       // Litres currently on board per vehicle id, derived the same way as the web console.
       loads: data ? vehicleLoads(data) : new Map<string, number>(),
     }

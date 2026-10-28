@@ -26,7 +26,7 @@ export default function OccupierScreen() {
     })
     const b = dueBuckets(devices)
     const year = donePickupsSince(data.pickups.filter((p) => p.deviceId && ids.has(p.deviceId)), 365)
-    const transport = [...new Set(devices.map((d) => d.companyId).filter(Boolean) as string[])].map((t) => ({ co: ix.companies.get(t), n: devices.filter((d) => d.companyId === t).length })).filter((x) => x.co)
+    const transport = [...new Set(devices.map((d) => ix.servicedBy.get(d.id)).filter(Boolean) as string[])].map((t) => ({ co: ix.companies.get(t), n: devices.filter((d) => ix.servicedBy.get(d.id) === t).length })).filter((x) => x.co)
     const issues = data.reportedIssues.filter((i) => i.status !== 'resolved' && ids.has(i.deviceId))
     return { devices, locations, b, year, transport, issues }
   }, [data, id, ix])

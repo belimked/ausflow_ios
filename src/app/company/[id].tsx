@@ -20,7 +20,7 @@ export default function CompanyScreen() {
 
   const v = useMemo(() => {
     if (!data) return null
-    const devices = data.devices.filter((d) => d.companyId === id)
+    const devices = data.devices.filter((d) => ix.servicedBy.get(d.id) === id)
     const drivers = data.drivers.filter((d) => d.companyId === id).sort((a, b) => a.name.localeCompare(b.name))
     const vehicles = data.vehicles.filter((x) => x.companyId === id).sort((a, b) => a.plate.localeCompare(b.plate))
     const pickups = data.pickups.filter((p) => p.companyId === id)
@@ -30,7 +30,7 @@ export default function CompanyScreen() {
     const ongoing = new Map(data.pickups.filter((p) => p.status === 'ongoing' && p.driverId).map((p) => [p.driverId!, p]))
     const occupiers = new Set(devices.map((d) => d.ownerId).filter(Boolean) as string[])
     return { devices: sortByDue(devices), drivers, vehicles, p7, litres7: litresOf(p7), b, today, ongoing, occupiers: occupiers.size }
-  }, [data, id])
+  }, [data, id, ix])
 
   if (!co || !v) return <View style={{ flex: 1, backgroundColor: c.bg }}><Stack.Screen options={{ headerShown: false }} /><AHeader title="Company" back={() => router.back()} /><Text style={s.empty}>Not found.</Text></View>
   const compliance = v.b.active ? Math.round((100 - (v.b.overdue / v.b.active) * 100) * 10) / 10 : 100
@@ -55,7 +55,7 @@ export default function CompanyScreen() {
               <StatTile label="Jobs · 7d" value={String(v.p7.length)} />
               <StatTile label="Litres · 7d" value={fmtL(v.litres7).replace(' L', '')} />
             </View>
-            <SectionCard title="Compliance" sub="Service schedule across this company's devices" right={<Text style={s.pct}>{compliance}%</Text>}>
+            <SectionCard title="Compliance" sub="Service schedule for devices last serviced by this company" right={<Text style={s.pct}>{compliance}%</Text>}>
               <View style={{ paddingHorizontal: 14, paddingBottom: 12, gap: 8 }}>
                 <View style={s.bar}>
                   {[{ v: v.b.ok + v.b.none, col: c.success }, { v: v.b.soon, col: c.warning }, { v: v.b.overdue, col: c.danger }].filter((x) => x.v).map((x, i) => <View key={i} style={{ flex: x.v, backgroundColor: x.col }} />)}
@@ -108,7 +108,7 @@ export default function CompanyScreen() {
               const loc = d.locationId ? ix.locations.get(d.locationId) : undefined
               return <ARow key={d.id} icon="drop.fill" iconTone={TONE[due.state]} title={deviceTitle(d, loc)} subtitle={<Text style={s.sub}><Text style={s.mono}>{d.ref}</Text>{d.capacity ? ` · ${fmtL(d.capacity)}` : ''}</Text>}
                 right={<Tag label={due.label} tone={TONE[due.state]} />} last={i === Math.min(v.devices.length, 100) - 1} onPress={() => router.push(`/device/${d.id}`)} />
-            }) : <Text style={s.empty}>No devices assigned.</Text>}
+            }) : <Text style={s.empty}>No devices serviced yet.</Text>}
             {v.devices.length > 100 ? <Text style={s.empty}>Showing the first 100 · use the Devices tab to search.</Text> : null}
           </ACard>
         ) : null}

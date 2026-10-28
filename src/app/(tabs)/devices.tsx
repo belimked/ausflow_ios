@@ -33,7 +33,7 @@ export default function Devices() {
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
     const list = (data?.devices || []).filter((d) => {
-      if (mineOnly && profile && d.companyId !== profile.companyId) return false
+      if (mineOnly && profile && ix.servicedBy.get(d.id) !== profile.companyId) return false
       if (overdueOnly && dueState(d).state !== 'overdue') return false
       if (dueDays && !dueWithin(d, dueDays)) return false
       if (!needle) return true
@@ -58,7 +58,7 @@ export default function Devices() {
           style={s.input} autoCorrect={false} clearButtonMode="while-editing" returnKeyType="search" />
       </View>
       <View style={s.chips}>
-        {profile ? <Chip label="My company" icon="building.2.fill" active={mineOnly} onPress={() => setMineOnly((v) => !v)} /> : null}
+        {profile ? <Chip label="Serviced by us" icon="building.2.fill" active={mineOnly} onPress={() => setMineOnly((v) => !v)} /> : null}
         <Chip label="Overdue" icon="exclamationmark.triangle.fill" active={overdueOnly} onPress={() => setOverdueOnly((v) => !v)} />
         <Chip label={locating ? 'Locating…' : 'Nearby'} icon="location.fill" active={!!here} onPress={toggleNearby} />
       </View>

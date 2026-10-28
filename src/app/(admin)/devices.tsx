@@ -32,17 +32,17 @@ export default function AdminDevices() {
 
   const counts = useMemo(() => deviceCounts(data?.devices || []), [data])
   const companies = useMemo(() => {
-    const used = new Set((data?.devices || []).map((d) => d.companyId).filter(Boolean) as string[])
+    const used = new Set((data?.devices || []).map((d) => ix.servicedBy.get(d.id)).filter(Boolean) as string[])
     return (data?.companies || []).filter((co) => used.has(co.id)).sort((a, b) => a.name.localeCompare(b.name))
-  }, [data])
+  }, [data, ix])
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
     const list = filterDevices(data?.devices || [], filter).filter((d) => {
-      if (company && d.companyId !== company) return false
+      if (company && ix.servicedBy.get(d.id) !== company) return false
       if (!needle) return true
       const loc = d.locationId ? ix.locations.get(d.locationId) : undefined
-      return [d.ref, d.aka, d.qr, d.tags, d.locationDesc, loc?.name, addressOf(loc), ix.companies.get(d.companyId || '')?.name]
+      return [d.ref, d.aka, d.qr, d.tags, d.locationDesc, loc?.name, addressOf(loc), ix.companies.get(ix.servicedBy.get(d.id) || '')?.name]
         .some((v) => v && v.toLowerCase().includes(needle))
     })
     return sortByDue(list)
@@ -52,7 +52,7 @@ export default function AdminDevices() {
     const loc = d.locationId ? ix.locations.get(d.locationId) : undefined
     const due = dueState(d)
     const busy = ix.ongoingByDevice.get(d.id)
-    const co = ix.companies.get(d.companyId || '')?.name
+    const co = ix.companies.get(ix.servicedBy.get(d.id) || '')?.name
     return (
       <ARow testID={`device-row-${d.id}`} icon="drop.fill" iconTone={busy ? 'blue' : TONE[due.state]} last={index === rows.length - 1} onPress={() => router.push(`/device/${d.id}`)}
         title={deviceTitle(d, loc)}

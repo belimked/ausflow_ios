@@ -97,9 +97,12 @@ describe('transfer', () => {
     expect(plan.sync).toEqual({ upserts: { transfers: [plan.result as Transfer] }, seq: { TR: 2 } })
   })
 
+  it('transfers across companies but attributes the transfer to the sender', () => {
+    expect(transfer('VE0003').result).toMatchObject({ companyId: 'CO0001', toVehicleId: 'VE0003', volume: 850 })
+  })
+
   it.each([
     ['the target is the same vehicle', 'VE0001', d(), 'Choose a different vehicle to transfer to.'],
-    ['the target belongs to another company', 'VE0003', d(), 'You can only transfer to a vehicle of your company.'],
     ['the target is unknown', 'VE9999', d(), 'That vehicle is not active.'],
     ['nothing is on board', 'VE0002', d({ pickups: [] }), 'There is no waste on board to transfer.'],
   ])('refuses when %s', (_, to, dd, message) => {

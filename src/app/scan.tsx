@@ -53,7 +53,7 @@ export default function Scan() {
       if (hit.kind === 'vehicle') return router.replace(`/vehicle/${hit.item.id}`)
       return router.replace({ pathname: '/directory', params: { tab: 'facilities' } })
     }
-    const action = scanAction(resolveCode(data, raw), raw, mode, { vehicleId: profile?.vehicleId, onBoard, companyId: profile?.companyId })
+    const action = scanAction(resolveCode(data, raw), raw, mode, { vehicleId: profile?.vehicleId, onBoard })
     if ('problem' in action) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setProblem(action.problem)

@@ -1,17 +1,18 @@
 import * as Haptics from 'expo-haptics'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Card, Divider, EmptyState, Icon, Row, SectionTitle, toneColor } from '@/components/ui'
 import { overCapacity } from '@/lib/delivery'
 import { fmtL } from '@/lib/format'
 import { instantCoords, useLocationFix } from '@/lib/geo'
+import { isTransport } from '@/lib/profile'
 import { useIndex, useStore } from '@/lib/store'
 import { colors, radius } from '@/lib/theme'
 import type { Transfer, Vehicle } from '@/lib/types'
 
-// Old WasteID "Transfer All Waste": the whole load of the driver's vehicle moves to another vehicle of the company.
+// Transfer the whole load to any active receiving vehicle.
 export default function TransferScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
@@ -19,6 +20,8 @@ export default function TransferScreen() {
   const { data, profile, transfer } = useStore()
   const ix = useIndex()
   const [toId, setToId] = useState(params.toVehicleId || '')
+  const [query, setQuery] = useState('')
+  const [companyId, setCompanyId] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [done, setDone] = useState<Transfer | null>(null)
   // Locating starts as the page opens, and Transfer takes whatever is known by then without waiting.
@@ -35,8 +38,23 @@ export default function TransferScreen() {
   const toLoad = to ? Math.max(0, ix.loads.get(to.id) || 0) : 0
   const over = !!to && overCapacity(toLoad, load, to.tank)
   // Loads mostly move from a small truck into the big tanker, so large trucks (then bigger tanks) come first.
-  const others = (data?.vehicles || []).filter((v) => v.companyId === profile.companyId && v.status === 'active' && v.id !== from.id)
+  const vehicles = (data?.vehicles || []).filter((v) => v.status === 'active' && v.id !== from.id)
     .sort((a, b) => Number(b.type === 'large') - Number(a.type === 'large') || (b.tank || 0) - (a.tank || 0))
+  const companies = (data?.companies || []).filter((c) => c.id !== profile.companyId && isTransport(c) && vehicles.some((v) => v.companyId === c.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const needle = query.trim().toLowerCase()
+  const shown = needle ? vehicles.filter((v) => v.plate.toLowerCase().includes(needle))
+    : vehicles.filter((v) => v.companyId === (companyId || profile.companyId))
+  const matchingCompanies = needle ? (data?.companies || []).filter((c) => isTransport(c) && vehicles.some((v) => v.companyId === c.id) && c.name.toLowerCase().includes(needle))
+    .sort((a, b) => a.name.localeCompare(b.name)) : companies
+  const companyName = (v: Vehicle) => ix.companies.get(v.companyId || '')?.name || 'Unknown company'
+  const vehicleRow = (v: Vehicle) => (
+    <View key={v.id}><Divider />
+      <Row icon="truck.box" tone="neutral" title={v.plate}
+        subtitle={`${vehicleLine(v, Math.max(0, ix.loads.get(v.id) || 0))}${v.companyId !== profile.companyId || needle ? ` · ${companyName(v)}` : ''}`}
+        onPress={() => setToId(v.id)} />
+    </View>
+  )
 
   async function go() {
     if (!to) return
@@ -65,7 +83,7 @@ export default function TransferScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }}>
         <Text style={s.intro}>
-          Move the whole load from this truck into another truck of your company, for example from a small truck into the big tanker.
+          Move the whole load from this truck into another truck, including one from a different company.
           Scan the sticker of the other truck or pick it from the list.
         </Text>
 
@@ -83,12 +101,37 @@ export default function TransferScreen() {
             <>
               <Row testID="transfer-scan" icon="qrcode.viewfinder" title="Scan the receiving vehicle"
                 onPress={() => router.replace({ pathname: '/scan', params: { mode: 'transfer' } })} />
-              {others.map((v) => (
-                <View key={v.id}><Divider />
-                  <Row icon="truck.box" tone="neutral" title={v.plate} subtitle={vehicleLine(v, Math.max(0, ix.loads.get(v.id) || 0))} onPress={() => setToId(v.id)} />
-                </View>
-              ))}
-              {!others.length ? <><Divider /><EmptyState icon="truck.box" title="No other vehicles" message="Your company has no other active vehicle." /></> : null}
+              <Divider />
+              <View style={s.search}>
+                <Icon name="magnifyingglass" size={16} color={colors.faint} />
+                <TextInput value={query} onChangeText={setQuery} placeholder="Search company or plate" placeholderTextColor={colors.faint}
+                  style={s.input} autoCorrect={false} autoCapitalize="none" clearButtonMode="while-editing" returnKeyType="search" />
+              </View>
+              {needle ? (
+                <>
+                  {matchingCompanies.length ? <SectionTitle title="Companies" /> : null}
+                  {matchingCompanies.map((c) => <View key={c.id}><Divider /><Row icon="building.2.fill" title={c.name} subtitle={`${vehicles.filter((v) => v.companyId === c.id).length} vehicles`} onPress={() => { setCompanyId(c.id); setQuery('') }} /></View>)}
+                  {shown.length ? <SectionTitle title="Vehicles" /> : null}
+                  {shown.map(vehicleRow)}
+                  {!matchingCompanies.length && !shown.length ? <EmptyState icon="magnifyingglass" title="No matches" message="Try another company or plate." /> : null}
+                </>
+              ) : companyId ? (
+                <>
+                  <Divider /><Row icon="chevron.left" title="‹ All companies" onPress={() => setCompanyId(null)} />
+                  <SectionTitle title={ix.companies.get(companyId)?.name || 'Vehicles'} />
+                  {shown.map(vehicleRow)}
+                  {!shown.length ? <EmptyState icon="truck.box" title="No active vehicles" /> : null}
+                </>
+              ) : (
+                <>
+                  <SectionTitle title="Your company" />
+                  {shown.map(vehicleRow)}
+                  {!shown.length && vehicles.length ? <EmptyState icon="truck.box" title="No other active vehicles in your company" /> : null}
+                  {matchingCompanies.length ? <SectionTitle title="Other companies" /> : null}
+                  {matchingCompanies.map((c) => <View key={c.id}><Divider /><Row icon="building.2.fill" title={c.name} subtitle={`${vehicles.filter((v) => v.companyId === c.id).length} vehicles`} onPress={() => setCompanyId(c.id)} /></View>)}
+                  {!vehicles.length ? <EmptyState icon="truck.box" title="No other active vehicles" /> : null}
+                </>
+              )}
             </>
           )}
         </Card>
@@ -140,6 +183,8 @@ function Transferred({ transfer: t }: { transfer: Transfer }) {
 const s = StyleSheet.create({
   intro: { fontSize: 15, color: colors.muted, lineHeight: 21, paddingHorizontal: 4 },
   group: { padding: 0, overflow: 'hidden' },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 8, margin: 12, height: 44, borderRadius: 12, backgroundColor: '#E7ECF1', paddingHorizontal: 12 },
+  input: { flex: 1, fontSize: 16, color: colors.text, height: '100%' },
   link: { color: colors.primary, fontSize: 15, fontWeight: '600' },
   summary: { marginTop: 16, gap: 4, borderWidth: 2, borderColor: 'transparent' },
   summaryLabel: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 0.6, marginBottom: 4 },

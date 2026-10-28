@@ -23,7 +23,8 @@ export default function DeviceScreen() {
 
   const dev = ix.devices.get(id)
   const loc = dev?.locationId ? ix.locations.get(dev.locationId) : undefined
-  const company = dev?.companyId ? ix.companies.get(dev.companyId) : undefined
+  const companyId = ix.servicedBy.get(id)
+  const company = companyId ? ix.companies.get(companyId) : undefined
   const history = useMemo(() => (data?.pickups || []).filter((p) => p.deviceId === id && p.status === 'done')
     .sort((a, b) => (b.endAt || '').localeCompare(a.endAt || '')).slice(0, 5), [data, id])
 
@@ -90,12 +91,8 @@ export default function DeviceScreen() {
     Linking.openURL(`maps://?daddr=${dev.lat},${dev.lng}&q=${q}`)
   }
 
-  // Only devices assigned to the driver's transport company may be worked on (old WasteID "not authorised").
-  const authorised = !profile || dev.companyId === profile.companyId
   let action: React.ReactNode = null
-  if (canWrite && !authorised) {
-    action = <Button title="Not an authorised device" kind="secondary" icon="lock.fill" disabled onPress={() => {}} />
-  } else if (canWrite) {
+  if (canWrite) {
     if (ongoing && profile && ongoing.driverId === profile.driverId) {
       action = <Button title="Finish pickup" kind="success" icon="checkmark.circle.fill" onPress={() => router.push(`/job/${ongoing.id}`)} />
     } else if (ongoing) {
@@ -134,15 +131,6 @@ export default function DeviceScreen() {
           </View>
         </Card>
 
-        {!authorised ? (
-          <View style={[s.banner, { backgroundColor: toneColor('danger').bg }]}>
-            <Icon name="lock.fill" size={20} color={toneColor('danger').fg} />
-            <View style={{ flex: 1 }}>
-              <Text style={[s.bannerTitle, { color: toneColor('danger').fg }]}>Not an authorised device</Text>
-              <Text style={s.bannerSub}>{dev.companyId ? `Assigned to ${company?.name || 'another transport company'}, not to yours.` : 'Not assigned to any transport company. Contact the office.'}</Text>
-            </View>
-          </View>
-        ) : null}
         <View style={[s.banner, { backgroundColor: toneColor(banner[due.state]).bg }]}>
           <Icon name={due.state === 'overdue' ? 'exclamationmark.triangle.fill' : 'calendar'} size={20} color={toneColor(banner[due.state]).fg} />
           <View style={{ flex: 1 }}>
@@ -165,7 +153,7 @@ export default function DeviceScreen() {
           <Row icon="mappin.and.ellipse" title={loc?.name || 'Unknown location'} subtitle={addressOf(loc) || 'No address on file'} onPress={viewMode === 'admin' && loc ? () => router.push(`/location/${loc.id}`) : undefined} />
           {dev.locationDesc ? (<><Divider /><Row icon="text.bubble.fill" tone="neutral" title="Where to find it" subtitle={dev.locationDesc} /></>) : null}
           {dev.comments ? (<><Divider /><Row icon="note.text" tone="neutral" title="Comments" subtitle={dev.comments} /></>) : null}
-          {company ? (<><Divider /><Row icon="building.2.fill" tone="neutral" title={company.name} subtitle="Responsible transport company" onPress={viewMode === 'admin' ? () => router.push(`/company/${company.id}`) : undefined} /></>) : null}
+          <Divider /><Row icon="building.2.fill" tone="neutral" title={company?.name || '—'} subtitle="Last serviced by" onPress={viewMode === 'admin' && company ? () => router.push(`/company/${company.id}`) : undefined} />
           {viewMode === 'admin' && dev.ownerId && ix.companies.get(dev.ownerId) ? (<><Divider /><Row icon="storefront.fill" tone="neutral" title={ix.companies.get(dev.ownerId)!.name} subtitle="Occupier" onPress={() => router.push(`/occupier/${dev.ownerId}`)} /></>) : null}
           {dev.lat != null ? (<><Divider /><Row icon="arrow.triangle.turn.up.right.diamond.fill" tone="success" title="Directions" subtitle="Open in Apple Maps" onPress={directions} /></>) : null}
           {viewMode === 'admin' && dev.lat != null ? (<><Divider /><Row icon="map.fill" tone="primary" title="Show on map" subtitle="Nearby devices by due state" onPress={() => router.push({ pathname: '/map', params: { deviceId: dev.id } })} /></>) : null}

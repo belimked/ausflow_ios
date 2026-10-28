@@ -30,7 +30,7 @@ For each item tick ✅ or note **phone model, time, what you did, what you saw**
 
 ## 5. 卸料与转料 / Offload and transfer
 - [ ] 首页 "Offload waste" → 扫设施牌或选附近设施 → 确认量 → Deliver → 余量归零 / offload at a facility, on-board goes to 0
-- [ ] 再收一单，然后 "Transfer to another vehicle" 转给本公司另一台车 / transfer the whole load to another company vehicle
+- [ ] 再收一单，然后 "Transfer to another vehicle" 转给其他公司车辆 / transfer the whole load to a vehicle from another company
 - [ ] History 页的 Offloads / Transfers 分类能看到这两条 / both appear under History
 
 ## 6. 离线 / Offline

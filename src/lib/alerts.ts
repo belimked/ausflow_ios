@@ -1,5 +1,6 @@
 import { dueState, fmtL, fmtM, nextService } from './format'
 import { vehicleLoads } from './load'
+import { lastServiceCompanies } from './servicedBy'
 import type { AlertStatus, AppData, Device } from './types'
 
 // Alerts are derived from the data, not stored: the same rules as the web console (store/alerts.js), so the
@@ -71,14 +72,16 @@ export function deriveAlerts(d: AppData, now = Date.now()): Alert[] {
   }
 
   const overdueByCompany = new Map<string, Device[]>()
+  const servicedBy = lastServiceCompanies(d.pickups)
   for (const dev of d.devices) {
     const days = overdueDays(dev)
     if (!days) continue
-    if (dev.companyId) overdueByCompany.set(dev.companyId, [...(overdueByCompany.get(dev.companyId) || []), dev])
+    const companyId = servicedBy.get(dev.id)
+    if (companyId) overdueByCompany.set(companyId, [...(overdueByCompany.get(companyId) || []), dev])
     push(`od:${dev.id}:${dev.lastService || ''}`, 'overdue', {
       severity: days >= 28 ? 'critical' : 'warning', title: `${dev.ref} overdue for pump-out`,
-      detail: `${loc(dev.locationId)} · ${overdueText(dev)} · ${dev.companyId ? company(dev.companyId) : 'No transport company assigned'}`,
-      at: nextService(dev), to: `/device/${dev.id}`, refs: { deviceId: dev.id, locationId: dev.locationId, companyId: dev.companyId },
+      detail: `${loc(dev.locationId)} · ${overdueText(dev)} · ${companyId ? company(companyId) : 'No previous service company'}`,
+      at: nextService(dev), to: `/device/${dev.id}`, refs: { deviceId: dev.id, locationId: dev.locationId, companyId: companyId || null },
     })
   }
 

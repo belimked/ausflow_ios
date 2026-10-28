@@ -21,7 +21,7 @@ export type Command =
   | { kind: 'reportIssue'; at: string; deviceId: string; category: IssueCategory; description: string; userName: string }
   // Old WasteID "Offload / Deliver Waste" at a treatment facility.
   | { kind: 'unload'; at: string; profile: WorkProfile; facilityId: string; volume: number; waste: string; coords: Coords | null }
-  // Old WasteID "Transfer All Waste" from the driver's vehicle to another vehicle of the company.
+  // Transfer the driver's whole load to another vehicle.
   | { kind: 'transfer'; at: string; profile: WorkProfile; toVehicleId: string; coords: Coords | null }
   // Console follow-up on a derived alert (web console setAlertStatus / addAlertNote / markRead).
   | { kind: 'alertStatus'; at: string; alertId: string; status: AlertStatus; reason: string; userName: string }
@@ -60,11 +60,6 @@ function locationFlags(distance: number | null, coords: Coords | null) {
 function readyToWork(d: AppData, deviceId: string, profile: WorkProfile) {
   const dev = d.devices.find((x) => x.id === deviceId)
   if (!dev) throw new CommandError('This device no longer exists.')
-  if (dev.companyId !== profile.companyId) {
-    throw new CommandError(dev.companyId
-      ? 'Not an authorised device: it is assigned to another transport company.'
-      : 'Not an authorised device: it is not assigned to any transport company. Contact the office.')
-  }
   if (d.pickups.some((p) => p.status === 'ongoing' && p.deviceId === deviceId)) {
     throw new CommandError('A pickup is already in progress at this device.')
   }
@@ -173,7 +168,6 @@ export function planTransfer(d: AppData, c: Extract<Command, { kind: 'transfer' 
   const to = d.vehicles.find((v) => v.id === c.toVehicleId)
   if (!to || to.status !== 'active') throw new CommandError('That vehicle is not active.')
   if (to.id === from.id) throw new CommandError('Choose a different vehicle to transfer to.')
-  if (to.companyId !== c.profile.companyId) throw new CommandError('You can only transfer to a vehicle of your company.')
   // The whole load moves (old "Transfer All Waste"); the console's trace relies on that.
   const volume = vehicleLoads(d).get(from.id) || 0
   if (volume <= 0) throw new CommandError('There is no waste on board to transfer.')

@@ -23,7 +23,7 @@ export default function LocationScreen() {
     const year = donePickupsSince(data.pickups.filter((p) => p.deviceId && ids.has(p.deviceId)), 365)
     const overdue = devices.filter((d) => dueState(d).state === 'overdue').length
     const owners = [...new Set(devices.map((d) => d.ownerId).filter(Boolean) as string[])].map((o) => ix.companies.get(o)).filter(Boolean)
-    const transport = [...new Set(devices.map((d) => d.companyId).filter(Boolean) as string[])].map((o) => ix.companies.get(o)).filter(Boolean)
+    const transport = [...new Set(devices.map((d) => ix.servicedBy.get(d.id)).filter(Boolean) as string[])].map((o) => ix.companies.get(o)).filter(Boolean)
     return { devices, year, overdue, owners, transport }
   }, [data, id, ix])
 
@@ -58,7 +58,7 @@ export default function LocationScreen() {
         <SectionCard title="Devices at this location" right={<LinkText label="Filter list" onPress={() => router.navigate('/devices')} />}>
           {v.devices.length ? v.devices.map((d, i) => {
             const due = dueState(d)
-            const co = d.companyId ? ix.companies.get(d.companyId) : undefined
+            const co = ix.servicedBy.get(d.id) ? ix.companies.get(ix.servicedBy.get(d.id)!) : undefined
             return <ARow key={d.id} icon="drop.fill" iconTone={TONE[due.state]} title={<Text style={s.title}><Text style={s.mono}>{d.ref}</Text>{d.type ? ` · ${d.type}` : ''}</Text>}
               subtitle={[d.capacity ? fmtL(d.capacity) : null, d.freqWeeks ? `every ${d.freqWeeks} wk` : null, co?.name].filter(Boolean).join(' · ')}
               right={<Tag label={due.label} tone={TONE[due.state]} />} last={i === v.devices.length - 1} onPress={() => router.push(`/device/${d.id}`)} />
@@ -76,8 +76,8 @@ export default function LocationScreen() {
         ) : null}
 
         <SectionCard title="Transport companies serving">
-          {v.transport.length ? v.transport.map((co, i) => <ARow key={co!.id} icon="building.2.fill" title={co!.name} subtitle={`${v.devices.filter((d) => d.companyId === co!.id).length} device(s)`} last={i === v.transport.length - 1} onPress={() => router.push(`/company/${co!.id}`)} />)
-            : <Text style={s.empty}>No transport company assigned.</Text>}
+          {v.transport.length ? v.transport.map((co, i) => <ARow key={co!.id} icon="building.2.fill" title={co!.name} subtitle={`${v.devices.filter((d) => ix.servicedBy.get(d.id) === co!.id).length} device(s)`} last={i === v.transport.length - 1} onPress={() => router.push(`/company/${co!.id}`)} />)
+            : <Text style={s.empty}>No company has serviced these devices yet.</Text>}
         </SectionCard>
       </ScrollView>
     </View>

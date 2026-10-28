@@ -22,9 +22,13 @@ describe('startPickup', () => {
     expect(p.distance).toBeNull()
   })
 
+  it.each([['CO0099', 'another company'], [null, 'unassigned']] as const)('starts a device %s (%s)', (companyId, _label) => {
+    const d = data({ devices: [device({ companyId })] })
+    expect((planCommand(d, { kind: 'startPickup', at, deviceId: 'DV0001', profile, coords: here }).result as Pickup).companyId).toBe(profile.companyId)
+    expect((planCommand(d, { kind: 'serviceOnly', at, deviceId: 'DV0001', profile, coords: here, note: '', userName: 'Sam' }).result as Pickup).status).toBe('done')
+  })
+
   it.each([
-    ['the device belongs to another company', data({ devices: [device({ companyId: 'CO0099' })] }), 'Not an authorised device: it is assigned to another transport company.'],
-    ['the device has no company', data({ devices: [device({ companyId: null })] }), 'Not an authorised device: it is not assigned to any transport company. Contact the office.'],
     ['the device is gone', data({ devices: [] }), 'This device no longer exists.'],
     ['the device is busy', data({ pickups: [pickup({ status: 'ongoing', driverId: 'DR0099' })] }), 'A pickup is already in progress at this device.'],
     ['the driver is busy', data({ pickups: [pickup({ status: 'ongoing', deviceId: 'DV0099' })] }), 'You already have a pickup in progress. Finish it before starting another.'],

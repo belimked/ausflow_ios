@@ -23,7 +23,7 @@ export default function Dashboard() {
     if (!data) return null
     const sum = dashboardSummary(data)
     const days = pickupsPerDay(data.pickups, DAYS)
-    const rank = overdueByCompany(data.devices)
+    const rank = overdueByCompany(data)
     const recent = data.pickups
       .filter((p) => p.status === 'done' && p.flags?.length)
       .sort((a, b) => (b.endAt || '').localeCompare(a.endAt || ''))
@@ -97,7 +97,7 @@ export default function Dashboard() {
             {v?.rank.length ? v.rank.slice(0, 5).map((r, i) => (
               <RankRow key={r.companyId || 'none'} rank={i + 1} label={ix.companies.get(r.companyId)?.name || 'No transport company'} value={String(r.total)}
                 ratio={r.total / v.rank[0].total} color={i === 0 ? c.danger : c.warning}
-                onPress={() => router.navigate({ pathname: '/devices', params: { filter: 'overdue', company: r.companyId } })} />
+                onPress={r.companyId ? () => router.navigate({ pathname: '/devices', params: { filter: 'overdue', company: r.companyId } }) : undefined} />
             )) : <Text style={s.empty}>No overdue devices.</Text>}
           </View>
         </SectionCard>

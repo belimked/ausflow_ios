@@ -1,5 +1,6 @@
 import { dueState, nextService, startOfDay } from './format'
 import { distanceM } from './geo-math'
+import { lastServiceCompanies } from './servicedBy'
 import type { AppData, Device, Pickup } from './types'
 
 // Derived numbers for the console screens. Everything comes from the /state snapshot already on the phone,
@@ -54,13 +55,14 @@ export function pickupsPerDay(pickups: Pickup[], days: number, now = Date.now())
 export interface CompanyOverdue { companyId: string; total: number; worstDays: number }
 
 // Overdue active devices grouped by transport company, worst first (the console's ranking card).
-export function overdueByCompany(devices: Device[]): CompanyOverdue[] {
+export function overdueByCompany(d: Pick<AppData, 'devices' | 'pickups'>): CompanyOverdue[] {
   const m = new Map<string, CompanyOverdue>()
-  for (const d of devices) {
-    if (d.status !== 'Active') continue
-    const s = dueState(d)
+  const companies = lastServiceCompanies(d.pickups)
+  for (const device of d.devices) {
+    if (device.status !== 'Active') continue
+    const s = dueState(device)
     if (s.state !== 'overdue') continue
-    const key = d.companyId || ''
+    const key = companies.get(device.id) || ''
     const row = m.get(key) || { companyId: key, total: 0, worstDays: 0 }
     row.total++
     row.worstDays = Math.max(row.worstDays, -s.days)

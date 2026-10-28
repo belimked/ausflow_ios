@@ -14,6 +14,8 @@ const base = (): AppData => ({
   drivers: [{ id: 'DR', name: 'Dylan', status: 'Active' }], vehicles: [{ id: 'V1', plate: '122 4SZ', tank: 5000, status: 'active', companyId: 'C1' }],
   facilities: [], transfers: [], unloads: [],
   pickups: [
+    { id: 'PK-D1', status: 'done', startAt: iso(2), endAt: iso(2), deviceId: 'D1', companyId: 'C1' },
+    { id: 'PK-D2', status: 'done', startAt: iso(2), endAt: iso(2), deviceId: 'D2', companyId: 'C1' },
     { id: 'PK1', status: 'ongoing', startAt: new Date(Date.now() - 9 * 36e5).toISOString(), driverId: 'DR', vehicleId: 'V1', deviceId: 'D3', locationId: 'L1' },
     { id: 'PK2', status: 'done', startAt: iso(1), endAt: iso(1), volume: 4800, flags: ['nolocation', 'capacity'], deviceId: 'D3', vehicleId: 'V1', driverId: 'DR' },
   ],
@@ -38,9 +40,21 @@ test('derives the device, driver and vehicle alerts', () => {
   expect(list.find((a) => a.type === 'vehicleFull')!.title).toContain('96% full')
 })
 
+test('overdue attribution uses latest completed service, not stored assignment or ongoing work', () => {
+  const d = base()
+  d.pickups.push({ id: 'PK-new', status: 'done', deviceId: 'D1', companyId: 'C2', startAt: iso(1), endAt: iso(1) },
+    { id: 'PK-open', status: 'ongoing', deviceId: 'D2', companyId: 'C2', startAt: iso(0) })
+  const alerts = deriveAlerts(d)
+  expect(alerts.find((a) => a.type === 'overdue' && a.refs.deviceId === 'D1')?.refs.companyId).toBe('C2')
+  expect(alerts.find((a) => a.type === 'overdue' && a.refs.deviceId === 'D2')?.refs.companyId).toBe('C1')
+  d.pickups = d.pickups.filter((p) => p.deviceId !== 'D2')
+  expect(deriveAlerts(d).find((a) => a.type === 'overdue' && a.refs.deviceId === 'D2')?.refs.companyId).toBeNull()
+})
+
 test('backlog alert appears from three overdue devices per company', () => {
   const d = base()
   d.devices.push({ id: 'D4', ref: 'DV4', status: 'Active', freqWeeks: 4, lastService: iso(40), locationId: 'L1', companyId: 'C1' })
+  d.pickups.push({ id: 'PK-D4', status: 'done', startAt: iso(2), endAt: iso(2), deviceId: 'D4', companyId: 'C1' })
   expect(deriveAlerts(d).some((a) => a.type === 'transportBacklog')).toBe(true)
 })
 

@@ -25,8 +25,8 @@ export default function Directory() {
     const needle = q.trim().toLowerCase()
     let out: Row[] = []
     if (tab === 'transport') {
-      out = data.companies.filter((co) => isTransport(co) || data.devices.some((d) => d.companyId === co.id)).map((co) => {
-        const devs = data.devices.filter((d) => d.companyId === co.id)
+      out = data.companies.filter((co) => isTransport(co) || data.devices.some((d) => ix.servicedBy.get(d.id) === co.id)).map((co) => {
+        const devs = data.devices.filter((d) => ix.servicedBy.get(d.id) === co.id)
         const b = dueBuckets(devs)
         return { id: co.id, icon: 'building.2.fill', title: co.name, to: `/company/${co.id}`,
           sub: `${data.drivers.filter((d) => d.companyId === co.id).length} drivers · ${data.vehicles.filter((v) => v.companyId === co.id).length} vehicles · ${b.active} devices`,

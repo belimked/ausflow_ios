@@ -29,9 +29,15 @@ test('filters match the segmented control', () => {
 })
 
 test('overdue ranking is worst company first', () => {
-  const r = overdueByCompany(devices)
+  const r = overdueByCompany({ devices, pickups: [
+    pick('a1', 1, { deviceId: 'late1', companyId: 'A' }),
+    pick('a2', 1, { deviceId: 'late2', companyId: 'A' }),
+    pick('b', 1, { deviceId: 'late3', companyId: 'B' }),
+  ] })
   expect(r.map((x) => [x.companyId, x.total])).toEqual([['A', 2], ['B', 1]])
   expect(r[0].worstDays).toBeGreaterThan(30)
+  const noHistory = overdueByCompany({ devices, pickups: [] })
+  expect(noHistory).toEqual([{ companyId: '', total: 3, worstDays: expect.any(Number) }])
 })
 
 test('sort by due puts the latest first and unscheduled last', () => {

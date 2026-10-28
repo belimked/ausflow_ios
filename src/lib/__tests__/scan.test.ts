@@ -21,10 +21,8 @@ describe('scanAction from Today (any)', () => {
     expect(scanAction(own, 'x', 'any', loaded)).toEqual({ go: 'join', vehicleId: 'VE0001' })
   })
 
-  it('refuses devices of another transport company once a company is chosen', () => {
+  it('opens another company’s device', () => {
     const other: Scanned = { kind: 'device', item: device({ id: 'DV0009', ref: 'DV999', companyId: 'CO0099' }) }
-    expect(scanAction(other, 'x', 'any', { ...empty, companyId: 'CO0001' })).toEqual({ problem: 'Not an authorised device: DV999 is not assigned to your transport company.' })
-    expect(scanAction(dev, 'x', 'any', { ...empty, companyId: 'CO0001' })).toEqual({ go: 'device', id: 'DV0001' })
     expect(scanAction(other, 'x', 'any', empty)).toEqual({ go: 'device', id: 'DV0009' })
   })
 

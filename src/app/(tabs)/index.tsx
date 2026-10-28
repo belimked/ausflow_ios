@@ -37,7 +37,7 @@ export default function Today() {
     const ongoing = mine.find((p) => p.status === 'ongoing')
     const doneToday = mine.filter((p) => p.status === 'done' && p.endAt && new Date(p.endAt).getTime() >= today)
       .sort((a, b) => (b.endAt || '').localeCompare(a.endAt || ''))
-    const fleet = data.devices.filter((d) => d.status === 'Active' && (!profile || d.companyId === profile.companyId))
+    const fleet = data.devices.filter((d) => d.status === 'Active' && (!profile || ix.servicedBy.get(d.id) === profile.companyId))
     const overdue = fleet.filter((d) => dueState(d).state === 'overdue').length
     const dueNext = fleet.filter((d) => nextService(d) && !ix.ongoingByDevice.has(d.id))
       .sort((a, b) => nextService(a)!.localeCompare(nextService(b)!)).slice(0, 5)
@@ -177,7 +177,7 @@ function OnBoard({ litres, tank, plate, onPress, onOffload, onTransfer }: {
         </View>
       ) : null}
       {onOffload && onTransfer && litres > 0 ? (
-        // The two places a load can go, equally visible: a facility, or another truck of the company.
+        // The two places a load can go, equally visible: a facility, or another truck.
         <View style={s.loadActions}>
           <Button testID="today-offload" title="Offload at facility" kind="success" icon="arrow.down.to.line" size="md" onPress={onOffload} style={{ flex: 1 }} />
           <Button testID="today-transfer" title="Transfer to truck" kind="secondary" icon="arrow.left.arrow.right" size="md" onPress={onTransfer} style={{ flex: 1 }} />

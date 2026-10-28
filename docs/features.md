@@ -119,7 +119,7 @@
 | 最近清运 | 该设备最近 5 条已完成清运 | `device/[id].tsx` |
 | 动作按钮（上下文相关） | 开始清运 / 完成（本人进行中）/ 他人进行中 / 先完成你当前清运 / 去设置身份 | `device/[id].tsx` `action` |
 | 非 Active 设备确认 | 设备非 Active 时开始清运需二次确认 | `device/[id].tsx` `start` |
-| 授权设备 | 只能对**本公司负责**的设备作业：扫到其他公司（或未分配公司）的设备时提示 "Not an authorised device"；设备页显示红色提示且无开单按钮；命令层同样拒绝 | `lib/scan.ts`、`device/[id].tsx`、`commands.ts` `readyToWork` |
+| 设备服务 | 任意运输公司司机均可扫描、开单或仅服务任意设备；设备的运输公司显示为最近完成服务的公司，无服务记录则为空 | `lib/scan.ts`、`device/[id].tsx`、`lib/servicedBy.ts` |
 | 定位预取 | 设备页、完成页、转车页、卸货页打开即在后台定位一次（首次申请权限）。Start pickup、Service only、Transfer、Offload 提交时直接拿手头坐标，不等待，没有则记 No GPS；Finish pickup 直接拿后台坐标；坐标超过 2 分钟或没有时才向 GPS 请求一次，最多等 2s，取不到就用旧坐标 | `geo.ts` `useLocationFix` |
 | 问题区块 | 列出该设备未关闭的问题（分类、描述、日期、上报人）；可写账号可"上报问题" | `device/[id].tsx`、`lib/issues.ts` |
 | 仅服务不收料 | 记录"已服务但未收料"：生成 0 L、`Service only` 的已完成记录，更新上次服务并写变更日志（记录方式待客户确认） | `device/[id].tsx` `recordService`、`commands.ts` `planServiceOnly` |
@@ -162,7 +162,7 @@
 |---|---|---|
 | 卸料 (Offload) | 扫设施牌或选附近设施（按距离）→ 确认车辆（可换）→ 交付量（默认车上余量，可改；与余量相差 >10% 提醒）→ 废物类型（默认车上占比最大的）→ 写 `unloads`（`UL…`，记录实际 GPS）；成功页显示车上剩余 | `src/app/offload.tsx`、`commands.ts` `planUnload`、`lib/delivery.ts` |
 | 设施位置提醒 | 当前位置距设施 >200m 时提醒 | `offload.tsx` |
-| 转料 (Transfer All Waste) | 入口：首页余量卡片 / 车载清单的 "Transfer to truck"，或车上有料时扫另一台车的贴纸。页面说明用途（小车倒进大罐车），接收车列表大车优先并标注车型与罐容量；扫目标车贴纸或选本公司其他车 → 显示两车转后载量 → 整车余量全部转出，写 `transfers`（`TR…`）；超过目标车罐容量时警告并二次确认；只能转给本公司车辆 | `src/app/transfer.tsx`、`commands.ts` `planTransfer` |
+| 转料 (Transfer All Waste) | 入口：首页余量卡片 / 车载清单的 "Transfer to truck"，或车上有料时扫另一台车的贴纸。页面说明用途（小车倒进大罐车），接收车列表大车优先并标注车型与罐容量；扫目标车贴纸或按公司、车牌搜索任意公司的车辆 → 显示两车转后载量 → 整车余量全部转出，写 `transfers`（`TR…`）；超过目标车罐容量时警告并二次确认；允许跨公司转料 | `src/app/transfer.tsx`、`commands.ts` `planTransfer` |
 | 车载清单 (Show) | 当前装载周期内的收料和转入，起始时间；可去卸料 / 转料 | `src/app/vehicle.tsx`、`lib/load.ts` `currentCycle` |
 | 收料去向 | 清运详情显示"已送到某设施（时间）"或"仍在某车上" | `job/[id].tsx`、`lib/load.ts` `pickupDelivery` |
 | 规则 | 有进行中清运时不能卸料/转料 | `commands.ts` `readyToMoveLoad` |
@@ -194,7 +194,7 @@
 | 功能 | 说明 | 代码位置 |
 |---|---|---|
 | 全文搜索 | ref / aka / qr / 标签 / 位置描述 / 位置名 / 地址 | `src/app/(tabs)/devices.tsx` |
-| 我司筛选 | 仅本公司设备（有身份时默认开） | `devices.tsx` `mineOnly` |
+| 我司筛选 | 仅显示最近由本公司服务的设备（有身份时默认开） | `devices.tsx` `mineOnly` |
 | 逾期筛选 | 仅逾期设备 | `devices.tsx` `overdueOnly` |
 | 到期筛选 | 7 天 / 30 天内到期（含已逾期），对应老 Service List 的 Service Due Before | `devices.tsx` `dueDays`、`format.ts` `dueWithin` |
 | 附近排序 | 取当前定位，按距离升序；无定位时提示 | `devices.tsx` `toggleNearby` |
