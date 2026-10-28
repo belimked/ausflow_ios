@@ -50,7 +50,7 @@ export default function TransferScreen() {
   const companyName = (v: Vehicle) => ix.companies.get(v.companyId || '')?.name || 'Unknown company'
   const vehicleRow = (v: Vehicle) => (
     <View key={v.id}><Divider />
-      <Row icon="truck.box" tone="neutral" title={v.plate}
+      <Row testID={`transfer-vehicle-${v.id}`} icon="truck.box" tone="neutral" title={v.plate}
         subtitle={`${vehicleLine(v, Math.max(0, ix.loads.get(v.id) || 0))}${v.companyId !== profile.companyId || needle ? ` · ${companyName(v)}` : ''}`}
         onPress={() => setToId(v.id)} />
     </View>
@@ -104,20 +104,20 @@ export default function TransferScreen() {
               <Divider />
               <View style={s.search}>
                 <Icon name="magnifyingglass" size={16} color={colors.faint} />
-                <TextInput value={query} onChangeText={setQuery} placeholder="Search company or plate" placeholderTextColor={colors.faint}
+                <TextInput testID="transfer-search" value={query} onChangeText={setQuery} placeholder="Search company or plate" placeholderTextColor={colors.faint}
                   style={s.input} autoCorrect={false} autoCapitalize="none" clearButtonMode="while-editing" returnKeyType="search" />
               </View>
               {needle ? (
                 <>
                   {matchingCompanies.length ? <SectionTitle title="Companies" /> : null}
-                  {matchingCompanies.map((c) => <View key={c.id}><Divider /><Row icon="building.2.fill" title={c.name} subtitle={`${vehicles.filter((v) => v.companyId === c.id).length} vehicles`} onPress={() => { setCompanyId(c.id); setQuery('') }} /></View>)}
+                  {matchingCompanies.map((c) => <View key={c.id}><Divider /><Row testID={`transfer-company-${c.id}`} icon="building.2.fill" title={c.name} subtitle={`${vehicles.filter((v) => v.companyId === c.id).length} vehicles`} onPress={() => { setCompanyId(c.id); setQuery('') }} /></View>)}
                   {shown.length ? <SectionTitle title="Vehicles" /> : null}
                   {shown.map(vehicleRow)}
                   {!matchingCompanies.length && !shown.length ? <EmptyState icon="magnifyingglass" title="No matches" message="Try another company or plate." /> : null}
                 </>
               ) : companyId ? (
                 <>
-                  <Divider /><Row icon="chevron.left" title="‹ All companies" onPress={() => setCompanyId(null)} />
+                  <Divider /><Row testID="transfer-all-companies" icon="chevron.left" title="‹ All companies" onPress={() => setCompanyId(null)} />
                   <SectionTitle title={ix.companies.get(companyId)?.name || 'Vehicles'} />
                   {shown.map(vehicleRow)}
                   {!shown.length ? <EmptyState icon="truck.box" title="No active vehicles" /> : null}
@@ -128,7 +128,7 @@ export default function TransferScreen() {
                   {shown.map(vehicleRow)}
                   {!shown.length && vehicles.length ? <EmptyState icon="truck.box" title="No other active vehicles in your company" /> : null}
                   {matchingCompanies.length ? <SectionTitle title="Other companies" /> : null}
-                  {matchingCompanies.map((c) => <View key={c.id}><Divider /><Row icon="building.2.fill" title={c.name} subtitle={`${vehicles.filter((v) => v.companyId === c.id).length} vehicles`} onPress={() => setCompanyId(c.id)} /></View>)}
+                  {matchingCompanies.map((c) => <View key={c.id}><Divider /><Row testID={`transfer-company-${c.id}`} icon="building.2.fill" title={c.name} subtitle={`${vehicles.filter((v) => v.companyId === c.id).length} vehicles`} onPress={() => setCompanyId(c.id)} /></View>)}
                   {!vehicles.length ? <EmptyState icon="truck.box" title="No other active vehicles" /> : null}
                 </>
               )}

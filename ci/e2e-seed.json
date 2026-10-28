@@ -1,14 +1,20 @@
 {
-  "companies": [{ "id": "E2E-CO1", "name": "E2E Transport", "phone": null, "status": "active", "types": "[\"transport\"]" }],
+  "companies": [
+    { "id": "E2E-CO1", "name": "E2E Transport", "phone": null, "status": "active", "types": "[\"transport\"]" },
+    { "id": "E2E-CO2", "name": "E2E Haulage", "phone": null, "status": "active", "types": "[\"transport\"]" }
+  ],
   "drivers": [
     { "id": "E2E-DR1", "companyId": "E2E-CO1", "name": "E2E Driver One", "account": "e2e_ops", "status": "active" },
     { "id": "E2E-DR2", "companyId": "E2E-CO1", "name": "E2E Driver Two", "account": "e2e_ops2", "status": "active" }
   ],
   "vehicles": [
     { "id": "E2E-VE1", "companyId": "E2E-CO1", "plate": "E2E 001", "type": "small", "tank": 4000, "qr": "VHE2E0000001", "status": "active" },
-    { "id": "E2E-VE2", "companyId": "E2E-CO1", "plate": "E2E 002", "type": "large", "tank": 8000, "qr": "VHE2E0000002", "status": "active" }
+    { "id": "E2E-VE2", "companyId": "E2E-CO1", "plate": "E2E 002", "type": "large", "tank": 8000, "qr": "VHE2E0000002", "status": "active" },
+    { "id": "E2E-VE3", "companyId": "E2E-CO2", "plate": "E2E 101", "type": "large", "tank": 8000, "qr": "VHE2E0000101", "status": "active" }
   ],
   "locations": [{ "id": "E2E-LO1", "name": "E2E Test Site", "address1": "1 Test Street", "suburb": "Adelaide", "state": "SA", "postcode": "5000", "lat": -34.9285, "lng": 138.6007, "status": "active" }],
-  "devices": [{ "id": "E2E-DV1", "ref": "E2E-DEV-001", "aka": "E2E Test Trap", "status": "Active", "type": "Grease Arrestor", "waste": "Grease Trap Waste", "qr": "E2EQR0001", "capacity": 1000, "lat": -34.9285, "lng": 138.6007, "freqWeeks": 4, "locationId": "E2E-LO1", "companyId": "E2E-CO1", "locationDesc": "Automated test device, not a real site" }],
+  "devices": [{ "id": "E2E-DV1", "ref": "E2E-DEV-001", "aka": "E2E Test Trap", "status": "Active", "type": "Grease Arrestor", "waste": "Grease Trap Waste", "qr": "E2EQR0001", "capacity": 1000, "lat": -34.9285, "lng": 138.6007, "freqWeeks": 4, "locationId": "E2E-LO1", "companyId": "E2E-CO1", "locationDesc": "Automated test device, not a real site" },
+    { "id": "E2E-DV2", "ref": "E2E-DEV-002", "aka": "E2E Other Company Trap", "status": "Active", "type": "Grease Arrestor", "waste": "Grease Trap Waste", "qr": "E2EQR0002", "capacity": 1000, "lat": -34.9286, "lng": 138.6008, "freqWeeks": 4, "locationId": "E2E-LO1", "companyId": "E2E-CO2", "locationDesc": "Automated test device of the second E2E company; never serviced" }
+  ],
   "facilities": [{ "id": "E2E-FA1", "name": "E2E Treatment Plant", "address": "2 Test Street, Adelaide SA 5000", "lat": -34.93, "lng": 138.6, "qr": "FAE2E0000001", "status": "active" }]
 }

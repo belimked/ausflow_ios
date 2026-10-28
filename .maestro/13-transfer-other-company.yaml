@@ -1,0 +1,59 @@
+appId: com.ausflow
+name: Pick a receiving vehicle of another company on the transfer screen, by company and by plate search (without submitting)
+tags:
+  - auth
+  - data
+env:
+  # Seeded by ci/e2e-seed.json: E2E Haulage (E2E-CO2) with vehicle E2E 101 (E2E-VE3).
+  E2E_OTHER_COMPANY_ID: E2E-CO2
+  E2E_OTHER_VEHICLE_ID: E2E-VE3
+  E2E_OTHER_PLATE: E2E 101
+---
+# Only the local profile changes; the transfer is never submitted, so nothing is written to UAT.
+# The transfer screen is opened by link because its buttons only show with waste on board.
+- runFlow: subflows/sign-in.yaml
+- runFlow: subflows/join-by-plate.yaml
+- openLink: ausflow://transfer
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "transfer-scan"
+    timeout: 15000
+
+# Own company's vehicles first, then other companies.
+- assertVisible: "YOUR COMPANY|Your company"
+- assertVisible:
+    id: "transfer-vehicle-E2E-VE2"
+- scrollUntilVisible:
+    element:
+      id: "transfer-company-${E2E_OTHER_COMPANY_ID}"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "transfer-company-${E2E_OTHER_COMPANY_ID}"
+- assertVisible:
+    id: "transfer-all-companies"
+- tapOn:
+    id: "transfer-vehicle-${E2E_OTHER_VEHICLE_ID}"
+- assertVisible:
+    id: "transfer-to"
+- assertVisible: ".*${E2E_OTHER_PLATE}.*"
+
+# Search by plate across companies.
+- tapOn: "Change"
+- tapOn:
+    id: "transfer-search"
+- inputText: ${E2E_OTHER_PLATE}
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "transfer-vehicle-${E2E_OTHER_VEHICLE_ID}"
+- assertVisible:
+    id: "transfer-to"
+- assertVisible:
+    id: "transfer-submit"
